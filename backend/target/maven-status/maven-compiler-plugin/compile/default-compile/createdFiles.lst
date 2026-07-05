@@ -1,0 +1,7 @@
+com/serverinventory/controller/ServerController.class
+com/serverinventory/repository/ServerRepository.class
+com/serverinventory/exception/ResourceNotFoundException.class
+com/serverinventory/service/ServerService.class
+com/serverinventory/entity/Server.class
+com/serverinventory/ServerInventoryApplication.class
+com/serverinventory/exception/GlobalExceptionHandler.class

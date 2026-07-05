@@ -1,0 +1,7 @@
+/home/ec2-user/Server-Inventory-Management/backend/src/main/java/com/serverinventory/ServerInventoryApplication.java
+/home/ec2-user/Server-Inventory-Management/backend/src/main/java/com/serverinventory/controller/ServerController.java
+/home/ec2-user/Server-Inventory-Management/backend/src/main/java/com/serverinventory/entity/Server.java
+/home/ec2-user/Server-Inventory-Management/backend/src/main/java/com/serverinventory/exception/GlobalExceptionHandler.java
+/home/ec2-user/Server-Inventory-Management/backend/src/main/java/com/serverinventory/exception/ResourceNotFoundException.java
+/home/ec2-user/Server-Inventory-Management/backend/src/main/java/com/serverinventory/repository/ServerRepository.java
+/home/ec2-user/Server-Inventory-Management/backend/src/main/java/com/serverinventory/service/ServerService.java
