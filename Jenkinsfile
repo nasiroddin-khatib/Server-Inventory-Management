@@ -12,20 +12,26 @@ pipeline {
 
         stage('Build') {
             steps {
-                sh 'mvn clean compile'
+                dir('backend') {
+                    sh 'mvn clean compile'
+                }
             }
         }
 
         stage('Test') {
             steps {
-                sh 'mvn test'
+                dir('backend') {
+                    sh 'mvn test'
+                }
             }
         }
 
         stage('SonarQube Analysis') {
             steps {
-                withSonarQubeEnv('sonarqube-server') {
-                    sh 'mvn sonar:sonar'
+                dir('backend') {
+                    withSonarQubeEnv('sonarqube-server') {
+                        sh 'mvn sonar:sonar'
+                    }
                 }
             }
         }
@@ -40,21 +46,24 @@ pipeline {
 
         stage('Package') {
             steps {
-                sh 'mvn clean package'
+                dir('backend') {
+                    sh 'mvn clean package'
+                }
             }
         }
 
         stage('Deploy to Nexus') {
             steps {
-                sh 'mvn deploy'
+                dir('backend') {
+                    sh 'mvn deploy'
+                }
             }
         }
 
         stage('Deploy Frontend to S3') {
             steps {
                 sh '''
-                    aws s3 sync frontend/ s3://mybkt-575458732395-ap-south-1-an \
-                        --delete
+                    aws s3 sync frontend/ s3://mybkt-575458732395-ap-south-1-an --delete
                 '''
             }
         }
@@ -89,5 +98,6 @@ pipeline {
             echo 'Please check Jenkins Console Output.'
             echo '======================================='
         }
+
     }
 }
