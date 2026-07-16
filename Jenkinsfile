@@ -71,7 +71,7 @@ pipeline {
         stage('Deploy Backend using Ansible') {
             steps {
                 ansiblePlaybook(
-                    credentialsId: 'tomcat',
+                    credentialsId: 'ssh-creds',
                     disableHostKeyChecking: true,
                     installation: 'ansible',
                     inventory: 'ansible/hosts',
