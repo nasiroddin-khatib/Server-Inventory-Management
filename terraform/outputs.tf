@@ -173,3 +173,24 @@ output "database_secret_name" {
   value = aws_secretsmanager_secret.database_secret.name
 
 }
+
+# ==========================================================
+# RDS
+# ==========================================================
+
+output "rds_endpoint" {
+
+  description = "RDS Endpoint"
+
+  value = aws_db_instance.postgres.endpoint
+
+}
+
+output "rds_database_name" {
+
+  description = "Database Name"
+
+  value = aws_db_instance.postgres.db_name
+
+}
+
