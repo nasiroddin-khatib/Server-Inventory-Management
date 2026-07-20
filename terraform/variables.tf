@@ -268,3 +268,56 @@ variable "db_password" {
   sensitive = true
 
 }
+
+# ==========================================================
+# RDS
+# ==========================================================
+
+variable "db_instance_identifier" {
+
+  description = "RDS Instance Identifier"
+
+  type = string
+
+}
+
+variable "db_name" {
+
+  description = "Database Name"
+
+  type = string
+
+}
+
+variable "db_engine_version" {
+
+  description = "PostgreSQL Version"
+
+  type = string
+
+}
+
+variable "db_instance_class" {
+
+  description = "RDS Instance Class"
+
+  type = string
+
+}
+
+variable "db_allocated_storage" {
+
+  description = "Allocated Storage"
+
+  type = number
+
+}
+
+variable "db_storage_type" {
+
+  description = "Storage Type"
+
+  type = string
+
+}
+
