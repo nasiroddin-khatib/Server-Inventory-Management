@@ -153,3 +153,23 @@ output "backend_instance_profile" {
   value = aws_iam_instance_profile.backend_instance_profile.name
 
 }
+
+# ==========================================================
+# SECRETS MANAGER
+# ==========================================================
+
+output "database_secret_arn" {
+
+  description = "Database Secret ARN"
+
+  value = aws_secretsmanager_secret.database_secret.arn
+
+}
+
+output "database_secret_name" {
+
+  description = "Database Secret Name"
+
+  value = aws_secretsmanager_secret.database_secret.name
+
+}
