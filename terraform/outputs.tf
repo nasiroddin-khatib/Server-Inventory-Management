@@ -137,3 +137,19 @@ output "monitoring_sg_id" {
   value = aws_security_group.monitoring_sg.id
 
 }
+
+# ==========================================================
+# BACKEND IAM
+# ==========================================================
+
+output "backend_role_name" {
+
+  value = aws_iam_role.backend_role.name
+
+}
+
+output "backend_instance_profile" {
+
+  value = aws_iam_instance_profile.backend_instance_profile.name
+
+}
