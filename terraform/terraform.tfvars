@@ -56,4 +56,23 @@ public_route_table_name = "public-route-table"
 
 private_route_table_name = "private-route-table"
 
+# ==========================================================
+# SG
+# ==========================================================
 
+alb_sg_name = "alb-sg"
+
+backend_sg_name = "backend-sg"
+
+rds_sg_name = "rds-sg"
+
+jenkins_sg_name = "jenkins-sg"
+
+sonarqube_sg_name = "sonarqube-sg"
+
+nexus_sg_name = "nexus-sg"
+
+monitoring_sg_name = "monitoring-sg"
+
+# =========================================================
+# 

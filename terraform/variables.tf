@@ -154,3 +154,65 @@ variable "private_route_table_name" {
   type = string
 
 }
+
+# =====================================================================
+# SG
+# =====================================================================
+
+variable "alb_sg_name" {
+
+  description = "Application Load Balancer Security Group"
+
+  type = string
+
+}
+
+variable "backend_sg_name" {
+
+  description = "Backend EC2 Security Group"
+
+  type = string
+
+}
+
+variable "rds_sg_name" {
+
+  description = "RDS Security Group"
+
+  type = string
+
+}
+
+variable "jenkins_sg_name" {
+
+  description = "Jenkins Security Group"
+
+  type = string
+
+}
+
+variable "sonarqube_sg_name" {
+
+  description = "SonarQube Security Group"
+
+  type = string
+
+}
+
+variable "nexus_sg_name" {
+
+  description = "Nexus Security Group"
+
+  type = string
+
+}
+
+variable "monitoring_sg_name" {
+
+  description = "Prometheus Grafana Security Group"
+
+  type = string
+
+}
+
+
