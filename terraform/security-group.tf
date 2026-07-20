@@ -290,7 +290,7 @@ resource "aws_security_group" "nexus_sg" {
 
     protocol = "tcp"
 
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = ["152.57.155.252/32"]
 
   }
 
@@ -302,7 +302,7 @@ resource "aws_security_group" "nexus_sg" {
 
     protocol = "-1"
 
-    cidr_blocks = ["152.57.155.252/32"]
+    cidr_blocks = ["0.0.0.0/0"]
 
   }
 
@@ -342,7 +342,7 @@ resource "aws_security_group" "monitoring_sg" {
 
     protocol = "tcp"
 
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = ["152.57.155.252/32"]
 
   }
 
@@ -356,7 +356,7 @@ resource "aws_security_group" "monitoring_sg" {
 
     protocol = "tcp"
 
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = ["152.57.155.252/32"]
 
   }
 
