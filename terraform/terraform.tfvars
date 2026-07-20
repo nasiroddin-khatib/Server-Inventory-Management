@@ -95,3 +95,19 @@ db_secret_name = "server-inventory-db-secret"
 db_username = "postgres"
 
 db_password = "admin123"
+
+# ==========================================================
+# RDS
+# ==========================================================
+
+db_instance_identifier = "server-inventory"
+
+db_name = "server_inventory"
+
+db_engine_version = "17.5"
+
+db_instance_class = "db.t4g.micro"
+
+db_allocated_storage = 20
+
+db_storage_type = "gp3"
