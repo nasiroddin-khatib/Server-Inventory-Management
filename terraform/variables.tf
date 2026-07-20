@@ -239,4 +239,32 @@ variable "backend_instance_profile_name" {
 
 }
 
+# ==========================================================
+# SECRETS MANAGER
+# ==========================================================
 
+variable "db_secret_name" {
+
+  description = "Database Secret Name"
+
+  type = string
+
+}
+
+variable "db_username" {
+
+  description = "Database Username"
+
+  type = string
+
+}
+
+variable "db_password" {
+
+  description = "Database Password"
+
+  type = string
+
+  sensitive = true
+
+}
