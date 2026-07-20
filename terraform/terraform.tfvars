@@ -85,3 +85,13 @@ monitoring_sg_name = "monitoring-sg"
 backend_role_name = "backend-role"
 
 backend_instance_profile_name = "backend-instance-profile"
+
+# ==========================================================
+# SECRETS MANAGER
+# ==========================================================
+
+db_secret_name = "server-inventory-db-secret"
+
+db_username = "postgres"
+
+db_password = "admin123"
