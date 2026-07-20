@@ -215,4 +215,28 @@ variable "monitoring_sg_name" {
 
 }
 
+# ======================================================================
+# IAM ROLE
+# ======================================================================
+
+# ==========================================================
+# BACKEND IAM
+# ==========================================================
+
+variable "backend_role_name" {
+
+  description = "Backend EC2 IAM Role"
+
+  type = string
+
+}
+
+variable "backend_instance_profile_name" {
+
+  description = "Backend EC2 Instance Profile"
+
+  type = string
+
+}
+
 
