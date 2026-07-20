@@ -75,4 +75,13 @@ nexus_sg_name = "nexus-sg"
 monitoring_sg_name = "monitoring-sg"
 
 # =========================================================
-# 
+# IAM ROLE
+# =========================================================
+
+# ==========================================================
+# BACKEND IAM
+# ==========================================================
+
+backend_role_name = "backend-role"
+
+backend_instance_profile_name = "backend-instance-profile"
