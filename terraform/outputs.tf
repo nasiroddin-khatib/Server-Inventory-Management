@@ -209,3 +209,15 @@ output "launch_template_latest_version" {
 output "backend_ami_id" {
   value = data.aws_ami.backend.id
 }
+
+# ================================================================
+# TG 
+# ================================================================
+
+output "target_group_arn" {
+  value = aws_lb_target_group.backend.arn
+}
+
+output "target_group_name" {
+  value = aws_lb_target_group.backend.name
+}
