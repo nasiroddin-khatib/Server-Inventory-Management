@@ -321,3 +321,18 @@ variable "db_storage_type" {
 
 }
 
+# ========================================================
+# LAUNCH TEMPLATE
+# ========================================================
+
+variable "backend_instance_type" {
+  description = "Backend EC2 Instance Type"
+  type        = string
+  default     = "t3.micro"
+}
+
+variable "backend_volume_size" {
+  description = "Root EBS Volume Size"
+  type        = number
+  default     = 20
+}
