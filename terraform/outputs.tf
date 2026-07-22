@@ -269,35 +269,3 @@ output "scale_out_policy_arn" {
 output "scale_in_policy_arn" {
   value = aws_autoscaling_policy.scale_in.arn
 }
-
-#########################################################
-# Jenkins Outputs
-#########################################################
-
-output "jenkins_instance_id" {
-
-  description = "Jenkins EC2 Instance ID"
-
-  value = aws_instance.jenkins_server.id
-}
-
-output "jenkins_public_ip" {
-
-  description = "Public IP of Jenkins Server"
-
-  value = aws_instance.jenkins_server.public_ip
-}
-
-output "jenkins_public_dns" {
-
-  description = "Public DNS of Jenkins Server"
-
-  value = aws_instance.jenkins_server.public_dns
-}
-
-output "jenkins_url" {
-
-  description = "Jenkins Web URL"
-
-  value = "http://${aws_instance.jenkins_server.public_ip}:8080"
-}
