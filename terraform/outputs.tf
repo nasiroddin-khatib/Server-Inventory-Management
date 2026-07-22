@@ -237,3 +237,11 @@ output "alb_dns_name" {
 output "alb_zone_id" {
   value = aws_lb.backend.zone_id
 }
+
+# ======================================================================
+# LISTENER
+# =======================================================================
+
+output "listener_arn" {
+  value = aws_lb_listener.backend_http.arn
+}
