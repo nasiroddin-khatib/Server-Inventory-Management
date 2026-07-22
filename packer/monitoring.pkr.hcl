@@ -21,9 +21,10 @@ source "amazon-ebs" "monitoring" {
 
   region        = var.aws_region
   instance_type = var.instance_type
-  ssh_username  = "ubuntu"
 
-  ami_name = "monitoring-golden-ami-${formatdate("YYYY-MM-DD-hhmm", timestamp())}"
+  ssh_username = "ubuntu"
+
+  ami_name = "monitoring-golden-ami-${formatdate("YYYYMMDD-HHmmss", timestamp())}"
 
   source_ami_filter {
 
@@ -43,6 +44,7 @@ source "amazon-ebs" "monitoring" {
     Environment = "Production"
     ManagedBy   = "Packer"
   }
+
 }
 
 build {
@@ -52,21 +54,6 @@ build {
   sources = [
     "source.amazon-ebs.monitoring"
   ]
-
-  file {
-    source      = "files/prometheus.yml"
-    destination = "/tmp/prometheus.yml"
-  }
-
-  file {
-    source      = "files/grafana.ini"
-    destination = "/tmp/grafana.ini"
-  }
-
-  file {
-    source      = "files/cloudwatch-config.json"
-    destination = "/tmp/cloudwatch-config.json"
-  }
 
   shell {
     script = "install.sh"
