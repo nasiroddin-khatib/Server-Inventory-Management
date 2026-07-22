@@ -194,3 +194,18 @@ output "rds_database_name" {
 
 }
 
+# ===========================================================
+# Launch template
+# ===========================================================
+
+output "launch_template_id" {
+  value = aws_launch_template.backend.id
+}
+
+output "launch_template_latest_version" {
+  value = aws_launch_template.backend.latest_version
+}
+
+output "backend_ami_id" {
+  value = data.aws_ami.backend.id
+}
