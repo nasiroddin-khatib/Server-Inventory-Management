@@ -324,3 +324,25 @@ echo "Bootstrap Log:"
 echo "/var/log/jenkins-bootstrap.log"
 echo
 echo "========================================="
+
+#########################################################
+# Section 7 - Create Jenkins Directories
+#########################################################
+
+echo "Creating Jenkins directories..."
+
+mkdir -p /opt/jenkins
+
+mkdir -p /opt/jenkins/docker
+
+mkdir -p /opt/jenkins/plugins
+
+mkdir -p /opt/jenkins/casc
+
+mkdir -p /opt/jenkins/init.groovy.d
+
+echo "Directories created."
+
+echo "========================================="
+echo "Section 7 Completed"
+echo "========================================="
