@@ -62,6 +62,39 @@ echo "========================================="
 # Section 3 - Create Jenkins Dockerfile
 #########################################################
 
+echo "Creating plugins.txt..."
+
+cat >/opt/jenkins/plugins.txt <<'EOF'
+configuration-as-code
+git
+github
+git-client
+pipeline
+workflow-aggregator
+credentials
+credentials-binding
+ssh-credentials
+matrix-auth
+role-strategy
+docker-workflow
+maven-plugin
+sonar
+dependency-check-jenkins-plugin
+htmlpublisher
+junit
+ws-cleanup
+pipeline-stage-view
+blueocean
+build-timeout
+ansicolor
+timestamper
+email-ext
+locale
+antisamy-markup-formatter
+EOF
+
+echo "plugins.txt created."
+
 echo "Creating Jenkins Dockerfile..."
 
 cat >/opt/jenkins/Dockerfile <<'EOF'
