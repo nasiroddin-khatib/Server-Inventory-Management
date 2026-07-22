@@ -79,6 +79,12 @@ instance_refresh {
     propagate_at_launch = true
   }
 
+tag {
+  key                 = "Role"
+  value               = "backend"
+  propagate_at_launch = true
+}
+
   lifecycle {
     create_before_destroy = true
   }
