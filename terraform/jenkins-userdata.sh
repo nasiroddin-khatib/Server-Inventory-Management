@@ -30,7 +30,6 @@ echo "Starting Docker..."
 systemctl enable docker
 systemctl start docker
 
-RUN groupadd -f docker && usermod -aG docker jenkins
 usermod -aG docker ec2-user
 
 echo "Docker Version"
