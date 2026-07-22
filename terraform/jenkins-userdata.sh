@@ -269,15 +269,13 @@ fi
 
 echo "Waiting for Jenkins web interface..."
 
-sleep 20
-
-echo "Checking Jenkins HTTP endpoint..."
-
-curl -fs http://localhost:8080/login >/dev/null
+until curl -fs http://localhost:8080/login >/dev/null; do
+    echo "Waiting for Jenkins..."
+    sleep 10
+done
 
 echo "Jenkins is responding."
 
-echo
 echo "========================================="
 echo "Jenkins Information"
 echo "========================================="
