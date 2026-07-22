@@ -161,7 +161,7 @@ ENV PATH="$PATH:/opt/dependency-check/bin"
 # Docker Permissions
 #################################################
 
-RUN usermod -aG docker jenkins
+RUN groupadd -f docker && usermod -aG docker jenkins
 
 COPY plugins.txt /usr/share/jenkins/ref/plugins.txt
 
