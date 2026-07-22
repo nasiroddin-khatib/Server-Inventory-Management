@@ -234,7 +234,6 @@ docker run -d \
 -v jenkins_home:/var/jenkins_home \
 -v /var/run/docker.sock:/var/run/docker.sock \
 -v /usr/bin/docker:/usr/bin/docker:ro \
--u root \
 custom-jenkins:latest
 
 echo "Waiting for Jenkins to start..."
