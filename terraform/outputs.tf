@@ -245,3 +245,15 @@ output "alb_zone_id" {
 output "listener_arn" {
   value = aws_lb_listener.backend_http.arn
 }
+
+# ===================================================================
+# ASG
+# ===================================================================
+
+output "autoscaling_group_name" {
+  value = aws_autoscaling_group.backend.name
+}
+
+output "autoscaling_group_arn" {
+  value = aws_autoscaling_group.backend.arn
+}
