@@ -70,3 +70,8 @@ variable "owner" {
   type        = string
   description = "AMI owner tag."
 }
+
+variable "secret_name" {
+  type        = string
+  description = "AWS Secrets Manager secret containing Nexus credentials."
+}
