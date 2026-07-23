@@ -3,10 +3,6 @@ variable "aws_region" {
   description = "AWS region where the AMI will be created."
 }
 
-variable "source_ami" {
-  type        = string
-  description = "Amazon Linux 2023 source AMI ID."
-}
 
 variable "instance_type" {
   type        = string
@@ -44,18 +40,6 @@ variable "artifact_url" {
   description = "URL of the artifact stored in Nexus."
 }
 
-variable "artifact_username" {
-  type        = string
-  description = "Nexus username."
-  sensitive   = true
-}
-
-variable "artifact_password" {
-  type        = string
-  description = "Nexus password."
-  sensitive   = true
-}
-
 variable "ami_name_prefix" {
   type        = string
   description = "Prefix used while creating the AMI."
@@ -84,9 +68,5 @@ variable "nexus_username" {
 variable "nexus_password" {
   type      = string
   sensitive = true
-}
-
-variable "artifact_url" {
-  type = string
 }
 

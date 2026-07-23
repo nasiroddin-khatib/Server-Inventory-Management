@@ -189,15 +189,15 @@ build {
 
   provisioner "shell" {
 
-  execute_command = "sudo -E bash '{{ .Path }}'"
+    execute_command = "sudo -E bash '{{ .Path }}'"
 
-  environment_vars = [
-    "APPLICATION_NAME=${var.application_name}"
-  ]
+    environment_vars = [
+      "APPLICATION_NAME=${var.application_name}"
+    ]
 
-  script = "scripts/07-deploy-application.sh"
+    script = "scripts/07-deploy-application.sh"
 
-}
+  }
 
   #########################################################
   # 08 - Cleanup
@@ -215,14 +215,15 @@ build {
   # 09 - Validation
   #########################################################
 
- provisioner "shell" {
+  provisioner "shell" {
 
-  execute_command = "sudo -E bash '{{ .Path }}'"
+    execute_command = "sudo -E bash '{{ .Path }}'"
 
-  environment_vars = [
-    "APPLICATION_NAME=${var.application_name}"
-  ]
+    environment_vars = [
+      "APPLICATION_NAME=${var.application_name}"
+    ]
 
-  script = "scripts/09-validate.sh"
+    script = "scripts/09-validate.sh"
 
+  }
 }
