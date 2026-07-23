@@ -24,7 +24,7 @@ secret_name = "server-inventory/nexus"
 # AMI Configuration
 ############################################################
 
-ami_name_prefix = "server-inventory-backend"
+ami_name_prefix = "backend-golden-ami"
 
 environment = "dev"
 
