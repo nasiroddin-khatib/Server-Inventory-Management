@@ -119,3 +119,8 @@ db_storage_type = "gp3"
 project = "server-inventory-management"
 environment = "production"
 
+# ==========================================================
+# S3
+# ==========================================================
+
+frontend_bucket_name = "server-inventory-frontend-3819"
