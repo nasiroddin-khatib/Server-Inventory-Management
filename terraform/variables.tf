@@ -344,3 +344,14 @@ variable "backend_volume_size" {
 variable "project" {}
 variable "environment" {}
 
+############################################
+# Frontend S3
+############################################
+
+variable "frontend_bucket_name" {
+
+  description = "Frontend S3 bucket name"
+
+  type = string
+
+}
