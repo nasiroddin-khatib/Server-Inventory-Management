@@ -111,3 +111,11 @@ db_instance_class = "db.t4g.micro"
 db_allocated_storage = 20
 
 db_storage_type = "gp3"
+
+# ==========================================================
+# ALB
+# ==========================================================
+
+project = "server-inventory-management"
+environment = "production"
+

@@ -336,3 +336,11 @@ variable "backend_volume_size" {
   type        = number
   default     = 20
 }
+
+# ============================================================
+# ALB
+# ============================================================
+
+variable "project" {}
+variable "environment" {}
+

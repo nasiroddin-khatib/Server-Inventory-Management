@@ -11,8 +11,8 @@ resource "aws_autoscaling_group" "backend" {
   max_size         = 4
 
   vpc_zone_identifier = [
-    aws_subnet.private_1.id,
-    aws_subnet.private_2.id
+    aws_subnet.private_subnet_1.id,
+    aws_subnet.private_subnet_2.id
   ]
 
   target_group_arns = [
@@ -27,23 +27,23 @@ resource "aws_autoscaling_group" "backend" {
     version = "$Latest"
   }
 
-instance_refresh {
+  instance_refresh {
 
-  strategy = "Rolling"
+    strategy = "Rolling"
 
-  preferences {
+    preferences {
 
-    min_healthy_percentage = 50
+      min_healthy_percentage = 50
 
-    instance_warmup = 300
+      instance_warmup = 300
+
+    }
+
+    triggers = [
+      "launch_template"
+    ]
 
   }
-
-  triggers = [
-    "launch_template"
-  ]
-
-}
 
   termination_policies = [
     "OldestLaunchTemplate"
@@ -79,11 +79,11 @@ instance_refresh {
     propagate_at_launch = true
   }
 
-tag {
-  key                 = "Role"
-  value               = "backend"
-  propagate_at_launch = true
-}
+  tag {
+    key                 = "Role"
+    value               = "backend"
+    propagate_at_launch = true
+  }
 
   lifecycle {
     create_before_destroy = true

@@ -4,7 +4,7 @@
 
 data "aws_ami" "backend" {
   most_recent = true
-  owners       = ["self"]
+  owners      = ["self"]
 
   filter {
     name   = "tag:Name"
@@ -28,11 +28,11 @@ resource "aws_launch_template" "backend" {
   instance_type = var.backend_instance_type
 
   iam_instance_profile {
-    name = aws_iam_instance_profile.backend.name
+    name = aws_iam_instance_profile.backend_instance_profile.name
   }
 
   vpc_security_group_ids = [
-    aws_security_group.backend.id
+    aws_security_group.backend_sg.id
   ]
 
   monitoring {
