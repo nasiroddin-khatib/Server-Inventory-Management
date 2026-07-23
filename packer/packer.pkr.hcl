@@ -215,12 +215,14 @@ build {
   # 09 - Validation
   #########################################################
 
-  provisioner "shell" {
+ provisioner "shell" {
 
-    execute_command = "sudo -E bash '{{ .Path }}'"
+  execute_command = "sudo -E bash '{{ .Path }}'"
 
-    script = "scripts/09-validate.sh"
+  environment_vars = [
+    "APPLICATION_NAME=${var.application_name}"
+  ]
 
-  }
+  script = "scripts/09-validate.sh"
 
 }
