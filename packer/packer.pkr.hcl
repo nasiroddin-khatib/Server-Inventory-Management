@@ -17,29 +17,22 @@ source "amazon-ebs" "backend" {
   security_group_id    = var.security_group_id
   iam_instance_profile = var.iam_instance_profile
 
-  associate_public_ip_address              = true
+  associate_public_ip_address               = true
   temporary_security_group_source_public_ip = true
 
   source_ami_filter {
 
     filters = {
-
       name                = "al2023-ami-2023*-x86_64"
-
       root-device-type    = "ebs"
-
       virtualization-type = "hvm"
-
     }
 
     most_recent = true
-
-    owners = ["amazon"]
-
+    owners      = ["amazon"]
   }
 
-  ami_name = "${var.ami_name_prefix}-${formatdate("YYYYMMDD-HHmmss", timestamp())}"
-
+  ami_name        = "${var.ami_name_prefix}-${formatdate("YYYYMMDD-HHmmss", timestamp())}"
   ami_description = "Golden Backend AMI for ${var.application_name}"
 
   encrypt_boot = true
@@ -55,45 +48,31 @@ source "amazon-ebs" "backend" {
     delete_on_termination = true
 
     encrypted = true
-
   }
 
   tags = {
 
-    Name = var.ami_name_prefix
-
-    Project = var.application_name
-
+    Name        = var.ami_name_prefix
+    Project     = var.application_name
     Environment = var.environment
-
-    Owner = var.owner
-
-    ManagedBy = "Packer"
-
-    Purpose = "Backend Golden AMI"
-
+    Owner       = var.owner
+    ManagedBy   = "Packer"
+    Purpose     = "Backend Golden AMI"
   }
 
   snapshot_tags = {
 
-    Name = var.ami_name_prefix
-
-    Project = var.application_name
-
+    Name        = var.ami_name_prefix
+    Project     = var.application_name
     Environment = var.environment
-
-    ManagedBy = "Packer"
-
+    ManagedBy   = "Packer"
   }
 
   run_tags = {
 
-    Name = "packer-build-instance"
-
+    Name      = "packer-build-instance"
     ManagedBy = "Packer"
-
-    Project = var.application_name
-
+    Project   = var.application_name
   }
 
 }
@@ -106,25 +85,28 @@ build {
     "source.amazon-ebs.backend"
   ]
 
+  #########################################################
+  # 01 - Install Java
+  #########################################################
+
   provisioner "shell" {
 
     execute_command = "sudo -E bash '{{ .Path }}'"
 
     environment_vars = [
-
       "AWS_REGION=${var.aws_region}",
-
       "APPLICATION_NAME=${var.application_name}",
-
       "SECRET_NAME=${var.secret_name}",
-
       "ENVIRONMENT=${var.environment}"
-
     ]
 
     script = "scripts/01-install-java.sh"
 
   }
+
+  #########################################################
+  # 02 - Install Tomcat
+  #########################################################
 
   provisioner "shell" {
 
@@ -134,6 +116,10 @@ build {
 
   }
 
+  #########################################################
+  # 03 - Configure Tomcat
+  #########################################################
+
   provisioner "shell" {
 
     execute_command = "sudo -E bash '{{ .Path }}'"
@@ -142,13 +128,20 @@ build {
 
   }
 
+  #########################################################
+  # CloudWatch Configuration File
+  #########################################################
+
   provisioner "file" {
 
-    source = "files/cloudwatch-config.json"
-
+    source      = "files/cloudwatch-config.json"
     destination = "/tmp/cloudwatch-config.json"
 
   }
+
+  #########################################################
+  # 04 - Install CloudWatch Agent
+  #########################################################
 
   provisioner "shell" {
 
@@ -158,6 +151,10 @@ build {
 
   }
 
+  #########################################################
+  # 05 - Configure CloudWatch Agent
+  #########################################################
+
   provisioner "shell" {
 
     execute_command = "sudo -E bash '{{ .Path }}'"
@@ -166,23 +163,29 @@ build {
 
   }
 
+  #########################################################
+  # 06 - Download Latest Artifact from Nexus
+  #########################################################
+
   provisioner "shell" {
 
     execute_command = "sudo -E bash '{{ .Path }}'"
 
     environment_vars = [
-
       "AWS_REGION=${var.aws_region}",
-
-      "SECRET_NAME=${var.secret_name}",
-
-      "APPLICATION_NAME=${var.application_name}"
-
+      "APPLICATION_NAME=${var.application_name}",
+      "NEXUS_USERNAME=${var.nexus_username}",
+      "NEXUS_PASSWORD=${var.nexus_password}",
+      "ARTIFACT_URL=${var.artifact_url}"
     ]
 
     script = "scripts/06-download-artifact.sh"
 
   }
+
+  #########################################################
+  # 07 - Deploy Application
+  #########################################################
 
   provisioner "shell" {
 
@@ -192,6 +195,10 @@ build {
 
   }
 
+  #########################################################
+  # 08 - Cleanup
+  #########################################################
+
   provisioner "shell" {
 
     execute_command = "sudo -E bash '{{ .Path }}'"
@@ -199,6 +206,10 @@ build {
     script = "scripts/08-cleanup.sh"
 
   }
+
+  #########################################################
+  # 09 - Validation
+  #########################################################
 
   provisioner "shell" {
 
