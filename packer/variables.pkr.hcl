@@ -75,3 +75,18 @@ variable "secret_name" {
   type        = string
   description = "AWS Secrets Manager secret containing Nexus credentials."
 }
+
+variable "nexus_username" {
+  type      = string
+  sensitive = true
+}
+
+variable "nexus_password" {
+  type      = string
+  sensitive = true
+}
+
+variable "artifact_url" {
+  type = string
+}
+
