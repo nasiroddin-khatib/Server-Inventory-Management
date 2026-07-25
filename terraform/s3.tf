@@ -57,41 +57,62 @@ resource "aws_s3_bucket_ownership_controls" "frontend" {
 
   rule {
 
-    object_ownership = "BucketOwnerPreferred"
+    object_ownership = "BucketOwnerEnforced"
 
   }
 
 }
 
 ############################################
-# Block Public Access
+# Public Access Block
 ############################################
 
 resource "aws_s3_bucket_public_access_block" "frontend" {
 
   bucket = aws_s3_bucket.frontend.id
 
-  block_public_acls       = true
-  ignore_public_acls      = true
-  block_public_policy     = true
-  restrict_public_buckets = true
+  block_public_acls       = false
+  ignore_public_acls      = false
+  block_public_policy     = false
+  restrict_public_buckets = false
 
 }
 
 ############################################
-# Bucket Policy for CloudFront OAC
+# Static Website Hosting
 ############################################
 
-data "aws_iam_policy_document" "frontend_bucket_policy" {
+resource "aws_s3_bucket_website_configuration" "frontend" {
+
+  bucket = aws_s3_bucket.frontend.id
+
+  index_document {
+    suffix = "index.html"
+  }
+
+  error_document {
+    key = "index.html"
+  }
+
+}
+
+############################################
+# Public Read Policy
+############################################
+
+data "aws_iam_policy_document" "frontend_public_policy" {
 
   statement {
 
-    sid    = "AllowCloudFrontServicePrincipal"
+    sid    = "PublicReadGetObject"
+
     effect = "Allow"
 
     principals {
-      type        = "Service"
-      identifiers = ["cloudfront.amazonaws.com"]
+
+      type        = "*"
+      identifiers = ["*"]
+
     }
 
     actions = [
@@ -102,25 +123,18 @@ data "aws_iam_policy_document" "frontend_bucket_policy" {
       "${aws_s3_bucket.frontend.arn}/*"
     ]
 
-    condition {
-
-      test     = "StringEquals"
-      variable = "AWS:SourceArn"
-
-      values = [
-        aws_cloudfront_distribution.frontend.arn
-      ]
-
-    }
-
   }
 
 }
+
+############################################
+# Bucket Policy
+############################################
 
 resource "aws_s3_bucket_policy" "frontend" {
 
   bucket = aws_s3_bucket.frontend.id
 
-  policy = data.aws_iam_policy_document.frontend_bucket_policy.json
+  policy = data.aws_iam_policy_document.frontend_public_policy.json
 
 }
