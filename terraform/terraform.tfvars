@@ -90,7 +90,7 @@ backend_instance_profile_name = "backend-instance-profile"
 # SECRETS MANAGER
 # ==========================================================
 
-db_secret_name = "server-inventory-db-secret"
+db_secret_name = "db-secret"
 
 db_username = "postgres"
 
