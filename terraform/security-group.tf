@@ -66,7 +66,7 @@ resource "aws_security_group" "backend_sg" {
     "0.0.0.0/0"
   ]
 
-    ]
+    
 
   }
 
