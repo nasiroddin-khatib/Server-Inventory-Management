@@ -12,6 +12,7 @@ dnf install -y \
     java-17-amazon-corretto-devel \
     wget \
     curl \
+    jq \
     unzip \
     tar
 

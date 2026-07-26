@@ -183,6 +183,19 @@ build {
 
   }
 
+
+  provisioner "shell" {
+
+  execute_command = "sudo -E bash '{{ .Path }}'"
+
+  environment_vars = [
+    "AWS_REGION=${var.aws_region}",
+    "SECRET_NAME=${var.secret_name}"
+  ]
+
+  script = "scripts/06-configure-database.sh"
+
+}
   #########################################################
   # 07 - Deploy Application
   #########################################################

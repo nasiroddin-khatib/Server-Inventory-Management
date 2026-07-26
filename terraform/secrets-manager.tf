@@ -33,6 +33,15 @@ resource "aws_secretsmanager_secret_version" "database_secret_value" {
 
     password = var.db_password
 
+    endpoint = aws_db_instance.postgres.address
+
+    database = aws_db_instance.postgres.db_name
+    
+    
   })
+
+  depends_on = [
+    aws_db_instance.postgres
+  ]
 
 }

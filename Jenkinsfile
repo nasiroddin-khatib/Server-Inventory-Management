@@ -381,6 +381,17 @@ terraform apply \
                 ]) {
 
                     sh """
+
+cd ${TF_DIR}
+ALB=\$(terraform output -raw alb_dns_name)
+
+cat > ../${FRONTEND_DIR}/config.js <<EOF
+window.APP_CONFIG = {
+    BASE_URL: "http://\${ALB}/server-inventory/api/servers"
+};
+EOF
+
+
 aws s3 sync \
 ${FRONTEND_DIR}/ \
 s3://${FRONTEND_BUCKET} \

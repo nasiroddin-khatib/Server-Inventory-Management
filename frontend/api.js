@@ -4,7 +4,7 @@
 
 // Change this URL after deploying your backend.
 
-const BASE_URL = "http://43.205.125.210:8080/server-inventory/api/servers";
+const BASE_URL = window.APP_CONFIG.BASE_URL;
 
 
 // ===============================
