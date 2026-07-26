@@ -229,26 +229,8 @@ terraform apply \
 
         }
 
-        stage('Read Terraform Outputs') {
 
-            steps {
 
-                dir("${TF_DIR}") {
-
-                    script {
-
-                        AMI_NAME = sh(
-                            script: "terraform output -raw ami_name",
-                            returnStdout: true
-                        ).trim()
-
-                    }
-
-                }
-
-            }
-
-        }
 
         stage('Packer Init') {
 
@@ -321,7 +303,6 @@ terraform apply \
 
                         sh '''
                         packer build \
-                        -var ami_name=$AMI_NAME \
                         -var-file=${PACKER_VARS_FILE} \
                         -var nexus_username=$NEXUS_USERNAME \
                         -var nexus_password=$NEXUS_PASSWORD \
