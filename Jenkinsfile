@@ -11,6 +11,7 @@ pipeline {
         AWS_CREDENTIALS = 'aws-creds'
         SONARQUBE_SERVER = 'sonarqube-server'
         NEXUS_CREDENTIALS = 'nexus-creds'
+        
 
         AWS_DEFAULT_REGION = 'ap-south-1'
 
@@ -307,23 +308,22 @@ terraform apply \
                 dir("${PACKER_DIR}") {
 
                     withCredentials([
+                        [$class: 'AmazonWebServicesCredentialsBinding',
+                         credentialsId: "${AWS_CREDENTIALS}"],
 
-                        AWS Credentials
-
-                        usernamePassword(
-                        credentialsId:'nexus-creds',
-                        usernameVariable:'NEXUS_USERNAME',
-                        passwordVariable:'NEXUS_PASSWORD'
-)
-
-]) {
+                    usernamePassword(
+                        credentialsId: "${NEXUS_CREDENTIALS}",
+                        usernameVariable: 'NEXUS_USERNAME',
+                        passwordVariable: 'NEXUS_PASSWORD'
+    )
+])  {
 
                         sh '''
                         packer build \
                         -var ami_name=$AMI_NAME \
-                        -var-file=packer.auto.pkrvars.hcl \
+                        -var-file=${PACKER_VARS_FILE} \
                         -var nexus_username=$NEXUS_USERNAME \
-                        -var nexus_password=$NEXUS_PASSWORD
+                        -var nexus_password=$NEXUS_PASSWORD \
                         .
                         '''
 
