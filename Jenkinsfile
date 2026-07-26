@@ -322,8 +322,6 @@ usernamePassword(
 -var artifact_url=$ARTIFACT_URL \
 -var nexus_username=$NEXUS_USERNAME \
 -var nexus_password=$NEXUS_PASSWORD \
-
-
                         .
                         '''
 
@@ -353,7 +351,7 @@ usernamePassword(
 ])  {
 
                         sh '''
-
+packer build \
 -var-file=${PACKER_VARS_FILE} \
 -var subnet_id=$SUBNET_ID \
 -var security_group_id=$SECURITY_GROUP_ID \
