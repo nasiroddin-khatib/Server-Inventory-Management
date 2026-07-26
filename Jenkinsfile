@@ -265,27 +265,27 @@ stage('Read Terraform Outputs') {
 
             script {
 
-                SUBNET_ID = sh(
-                    script: "terraform output -raw public_subnet_1_id",
-                    returnStdout: true
-                ).trim()
+env.SUBNET_ID = sh(
+        script: "terraform output -raw public_subnet_1_id",
+        returnStdout: true
+    ).trim()
 
-echo "SUBNET_ID=${SUBNET_ID}"
-echo "SECURITY_GROUP_ID=${SECURITY_GROUP_ID}"
-echo "IAM_INSTANCE_PROFILE=${IAM_INSTANCE_PROFILE}"
-echo "ARTIFACT_URL=${ARTIFACT_URL}"
+    env.SECURITY_GROUP_ID = sh(
+        script: "terraform output -raw backend_sg_id",
+        returnStdout: true
+    ).trim()
 
-                SECURITY_GROUP_ID = sh(
-                    script: "terraform output -raw backend_sg_id",
-                    returnStdout: true
-                ).trim()
+    env.IAM_INSTANCE_PROFILE = sh(
+        script: "terraform output -raw backend_instance_profile",
+        returnStdout: true
+    ).trim()
 
-                IAM_INSTANCE_PROFILE = sh(
-                    script: "terraform output -raw backend_instance_profile",
-                    returnStdout: true
-                ).trim()
+    env.ARTIFACT_URL = "http://3.111.219.129:8081/repository/Server-Inventory/com/serverinventory/server-inventory/1.0.0/server-inventory-1.0.0.war"
 
-                ARTIFACT_URL = "http://3.111.219.129:8081/repository/Server-Inventory/com/serverinventory/server-inventory/1.0.0/server-inventory-1.0.0.war"
+    echo "SUBNET_ID=${env.SUBNET_ID}"
+    echo "SECURITY_GROUP_ID=${env.SECURITY_GROUP_ID}"
+    echo "IAM_INSTANCE_PROFILE=${env.IAM_INSTANCE_PROFILE}"
+    echo "ARTIFACT_URL=${env.ARTIFACT_URL}"
 
             }
 
