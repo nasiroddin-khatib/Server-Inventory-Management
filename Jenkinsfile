@@ -308,15 +308,22 @@ terraform apply \
 
                     withCredentials([
 
-                        [$class: 'AmazonWebServicesCredentialsBinding',
-                        credentialsId: "${AWS_CREDENTIALS}"]
+                        AWS Credentials
 
-                    ]) {
+                        usernamePassword(
+                        credentialsId:'nexus-creds',
+                        usernameVariable:'NEXUS_USERNAME',
+                        passwordVariable:'NEXUS_PASSWORD'
+)
+
+]) {
 
                         sh '''
                         packer build \
                         -var ami_name=$AMI_NAME \
                         -var-file=packer.auto.pkrvars.hcl \
+                        -var nexus_username=$NEXUS_USERNAME \
+                        -var nexus_password=$NEXUS_PASSWORD
                         .
                         '''
 
