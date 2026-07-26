@@ -215,6 +215,7 @@ terraform apply \
                     ]) {
 
                         sh '''
+                        mvn help:effective-settings
                         mvn deploy \
                         -Dnexus.username=$NEXUS_USERNAME \
                         -Dnexus.password=$NEXUS_PASSWORD
