@@ -90,7 +90,7 @@ backend_instance_profile_name = "backend-instance-profile"
 # SECRETS MANAGER
 # ==========================================================
 
-db_secret_name = "db-secret"
+db_secret_name = "mydb-secret"
 
 db_username = "postgres"
 
@@ -123,4 +123,4 @@ environment = "production"
 # S3
 # ==========================================================
 
-frontend_bucket_name = "server-inventory-frontend-3819"
+frontend_bucket_name = "server-inventory-frontend-38122"
