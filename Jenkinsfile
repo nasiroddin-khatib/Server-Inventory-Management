@@ -24,7 +24,7 @@ pipeline {
                         credentialsId: "${AWS_CREDENTIALS}"]
                     ]) {
                         sh '''
-                        mv launch-template.tf terraform/launch-template.tf.bak
+                        mv launch-template.tf launch-template.tf.bak
                         terraform init
                         '''
                     }
