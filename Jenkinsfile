@@ -464,7 +464,7 @@ http://${FRONTEND_BUCKET}.s3-website.ap-south-1.amazonaws.com
             }
 
         }
-
+}
     post {
 
         success {
