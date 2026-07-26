@@ -257,6 +257,39 @@ terraform apply \
 
         }
 
+stage('Read Terraform Outputs') {
+
+    steps {
+
+        dir("${TF_DIR}") {
+
+            script {
+
+                SUBNET_ID = sh(
+                    script: "terraform output -raw public_subnet_1_id",
+                    returnStdout: true
+                ).trim()
+
+                SECURITY_GROUP_ID = sh(
+                    script: "terraform output -raw backend_sg_id",
+                    returnStdout: true
+                ).trim()
+
+                IAM_INSTANCE_PROFILE = sh(
+                    script: "terraform output -raw backend_instance_profile",
+                    returnStdout: true
+                ).trim()
+
+                ARTIFACT_URL = "http://3.111.219.129:8081/repository/Server-Inventory/com/serverinventory/server-inventory/1.0.0/server-inventory-1.0.0.war"
+
+            }
+
+        }
+
+    }
+
+}
+
         stage('Packer Validate') {
 
             steps {
@@ -266,13 +299,26 @@ terraform apply \
                     withCredentials([
 
                         [$class: 'AmazonWebServicesCredentialsBinding',
-                        credentialsId: "${AWS_CREDENTIALS}"]
+                        credentialsId: "${AWS_CREDENTIALS}"],
 
+usernamePassword(
+        credentialsId: "${NEXUS_CREDENTIALS}",
+        usernameVariable: 'NEXUS_USERNAME',
+        passwordVariable: 'NEXUS_PASSWORD'
+    )
                     ]) {
 
                         sh '''
                         packer validate \
                         -var-file=${PACKER_VARS_FILE} \
+-var subnet_id=$SUBNET_ID \
+-var security_group_id=$SECURITY_GROUP_ID \
+-var iam_instance_profile=$IAM_INSTANCE_PROFILE \
+-var artifact_url=$ARTIFACT_URL \
+-var nexus_username=$NEXUS_USERNAME \
+-var nexus_password=$NEXUS_PASSWORD \
+
+
                         .
                         '''
 
@@ -302,10 +348,15 @@ terraform apply \
 ])  {
 
                         sh '''
-                        packer build \
-                        -var-file=${PACKER_VARS_FILE} \
-                        -var nexus_username=$NEXUS_USERNAME \
-                        -var nexus_password=$NEXUS_PASSWORD \
+
+-var-file=${PACKER_VARS_FILE} \
+-var subnet_id=$SUBNET_ID \
+-var security_group_id=$SECURITY_GROUP_ID \
+-var iam_instance_profile=$IAM_INSTANCE_PROFILE \
+-var artifact_url=$ARTIFACT_URL \
+-var nexus_username=$NEXUS_USERNAME \
+-var nexus_password=$NEXUS_PASSWORD \
+
                         .
                         '''
 
