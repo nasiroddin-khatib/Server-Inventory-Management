@@ -270,6 +270,11 @@ stage('Read Terraform Outputs') {
                     returnStdout: true
                 ).trim()
 
+echo "SUBNET_ID=${SUBNET_ID}"
+echo "SECURITY_GROUP_ID=${SECURITY_GROUP_ID}"
+echo "IAM_INSTANCE_PROFILE=${IAM_INSTANCE_PROFILE}"
+echo "ARTIFACT_URL=${ARTIFACT_URL}"
+
                 SECURITY_GROUP_ID = sh(
                     script: "terraform output -raw backend_sg_id",
                     returnStdout: true
