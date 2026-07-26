@@ -359,9 +359,8 @@ packer build \
 -var artifact_url=$ARTIFACT_URL \
 -var nexus_username=$NEXUS_USERNAME \
 -var nexus_password=$NEXUS_PASSWORD \
-
-                        .
-                        '''
+.
+'''
 
                     }
 
