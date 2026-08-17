@@ -1,11 +1,5 @@
 pipeline {
-
     agent any
-
-    environment {
-        AWS_CREDENTIALS = 'aws-creds'
-        TF_DIR = 'terraform'
-    }
 
     stages {
 
@@ -16,34 +10,73 @@ pipeline {
             }
         }
 
-        stage('Terraform Init') {
+        stage('Build') {
             steps {
-                dir("${TF_DIR}") {
-                    withCredentials([
-                        [$class: 'AmazonWebServicesCredentialsBinding',
-                        credentialsId: "${AWS_CREDENTIALS}"]
-                    ]) {
-                        sh '''
-                        mv launch-template.tf launch-template.tf.bak
-                        terraform init
-                        '''
+                dir('backend') {
+                    sh 'mvn clean compile'
+                }
+            }
+        }
+
+        stage('Test') {
+            steps {
+                dir('backend') {
+                    sh 'mvn test'
+                }
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                dir('backend') {
+                    withSonarQubeEnv('sonarqube-server') {
+                        sh 'mvn sonar:sonar'
                     }
                 }
             }
         }
 
-        stage('Terraform Destroy') {
+        stage('Quality Gate') {
             steps {
-                dir("${TF_DIR}") {
-                    withCredentials([
-                        [$class: 'AmazonWebServicesCredentialsBinding',
-                        credentialsId: "${AWS_CREDENTIALS}"]
-                    ]) {
-                        sh '''
-                        terraform destroy -auto-approve
-                        '''
-                    }
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
                 }
+            }
+        }
+
+        stage('Package') {
+            steps {
+                dir('backend') {
+                    sh 'mvn clean package'
+                }
+            }
+        }
+
+        stage('Deploy to Nexus') {
+            steps {
+                dir('backend') {
+                    sh 'mvn deploy -s /var/jenkins_home/.m2/settings.xml'
+                }
+            }
+        }
+
+        stage('Deploy Frontend to S3') {
+            steps {
+                sh '''
+                    aws s3 sync frontend/ s3://mybkt-575458732395-ap-south-1-an --delete
+                '''
+            }
+        }
+
+        stage('Deploy Backend using Ansible') {
+            steps {
+                ansiblePlaybook(
+                    credentialsId: 'ssh',
+                    disableHostKeyChecking: true,
+                    installation: 'ansible',
+                    inventory: 'ansible/hosts',
+                    playbook: 'ansible/deploy.yml'
+                )
             }
         }
 
@@ -52,15 +85,18 @@ pipeline {
     post {
 
         success {
-            echo "======================================"
-            echo "Infrastructure Destroyed Successfully"
-            echo "======================================"
+            echo '======================================='
+            echo 'Pipeline executed successfully.'
+            echo 'Backend deployed to Tomcat.'
+            echo 'Frontend deployed to Amazon S3.'
+            echo '======================================='
         }
 
         failure {
-            echo "======================================"
-            echo "Terraform Destroy Failed"
-            echo "======================================"
+            echo '======================================='
+            echo 'Pipeline Failed.'
+            echo 'Please check Jenkins Console Output.'
+            echo '======================================='
         }
 
     }

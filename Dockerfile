@@ -65,3 +65,6 @@ RUN git --version && \
     terraform version && \
     packer version && \
     ansible --version
+
+    
+USER jenkins

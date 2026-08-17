@@ -1,0 +1,11 @@
+---
+- name: Deploy Backend to Tomcat
+  hosts: tomcat
+  become: yes
+
+  tasks:
+
+    - name: Copy WAR to Tomcat
+      copy:
+        src: "{{ playbook_dir }}/../backend/target/server-inventory.war"
+        dest: /opt/tomcat/webapps/server-inventory.war
