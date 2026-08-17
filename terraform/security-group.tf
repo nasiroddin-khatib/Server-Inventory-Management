@@ -56,11 +56,11 @@ resource "aws_security_group" "backend_sg" {
 
     description = "HTTP from ALB"
 
-    from_port = 0
+    from_port = 80
 
-    to_port = 0
+    to_port = 80
 
-    protocol = "-1"
+    protocol = "tcp"
 
     cidr_blocks = [
     "0.0.0.0/0"
@@ -70,23 +70,7 @@ resource "aws_security_group" "backend_sg" {
 
   }
 
-  ingress {
-
-    description = "Prometheus Scraping"
-
-    from_port = 8080
-
-    to_port = 8080
-
-    protocol = "tcp"
-
-    security_groups = [
-
-      aws_security_group.monitoring_sg.id
-
-    ]
-
-  }
+  
 
   egress {
 
