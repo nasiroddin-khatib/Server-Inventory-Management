@@ -1,31 +1,14 @@
 ############################################
-# Get Latest Backend Golden AMI
-############################################
-
-data "aws_ami" "backend" {
-  most_recent = true
-  owners      = ["self"]
-
-  filter {
-    name   = "tag:Name"
-    values = ["backend-golden-ami"]
-  }
-
-  filter {
-    name   = "state"
-    values = ["available"]
-  }
-}
-
-############################################
 # Launch Template
 ############################################
 
 resource "aws_launch_template" "backend" {
 
   name_prefix   = "backend-lt-"
-  image_id      = data.aws_ami.backend.id
+  image_id      = "ami-035827357e3c7e810"
   instance_type = var.backend_instance_type
+
+  key_name = "mykey"
 
   iam_instance_profile {
     name = aws_iam_instance_profile.backend_instance_profile.name
