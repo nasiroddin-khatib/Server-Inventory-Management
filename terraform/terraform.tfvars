@@ -86,15 +86,6 @@ backend_role_name = "backend-role"
 
 backend_instance_profile_name = "backend-instance-profile"
 
-# ==========================================================
-# SECRETS MANAGER
-# ==========================================================
-
-db_secret_name = "mydb-secret"
-
-db_username = "postgres"
-
-db_password = "admin123"
 
 # ==========================================================
 # RDS
@@ -111,6 +102,10 @@ db_instance_class = "db.t4g.micro"
 db_allocated_storage = 20
 
 db_storage_type = "gp3"
+
+db_username = "postgres"
+
+
 
 # ==========================================================
 # ALB
