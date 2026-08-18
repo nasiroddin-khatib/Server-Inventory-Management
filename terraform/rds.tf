@@ -52,7 +52,7 @@ resource "aws_db_instance" "postgres" {
 
   username = var.db_username
 
-  password = var.db_password
+  manage_master_user_password = true
 
   db_subnet_group_name = aws_db_subnet_group.db_subnet_group.name
 
