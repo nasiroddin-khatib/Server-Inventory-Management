@@ -252,6 +252,9 @@ output "frontend_bucket_name" {
   value = aws_s3_bucket.frontend.bucket
 }
 
+# ======================================================================
+# Sonarqube-Server
+# ======================================================================
 
 output "sonarqube_public_ip" {
   description = "Public IP of SonarQube server"
