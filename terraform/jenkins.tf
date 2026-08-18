@@ -54,7 +54,6 @@ resource "aws_iam_instance_profile" "jenkins_profile" {
 # ============================================================
 
 resource "aws_instance" "jenkins" {
-
   ami           = "ami-0ac7b260cf76d8865"
   instance_type = "t3.small"
 
@@ -70,7 +69,6 @@ resource "aws_instance" "jenkins" {
 
   iam_instance_profile = aws_iam_instance_profile.jenkins_profile.name
 
-
   # ==========================================================
   # Root Volume - 20 GB
   # ==========================================================
@@ -81,91 +79,82 @@ resource "aws_instance" "jenkins" {
     delete_on_termination = true
   }
 
-
   # ==========================================================
   # Jenkins Server Bootstrap
   # ==========================================================
 
   user_data = <<-EOF
-    #!/bin/bash
+#!/bin/bash
 
-    set -e
+set -e
 
-    # --------------------------------------------------------
-    # Update packages
-    # --------------------------------------------------------
+# --------------------------------------------------------
+# Update packages
+# --------------------------------------------------------
 
-    dnf update -y
+dnf update -y
 
+# --------------------------------------------------------
+# Install Git and Docker
+# --------------------------------------------------------
 
-    # --------------------------------------------------------
-    # Install Git and Docker
-    # --------------------------------------------------------
+dnf install -y git docker
 
-    dnf install -y git docker
+# --------------------------------------------------------
+# Start Docker
+# --------------------------------------------------------
 
+systemctl enable --now docker
 
-    # --------------------------------------------------------
-    # Start Docker
-    # --------------------------------------------------------
+# --------------------------------------------------------
+# Start SSM Agent
+# Amazon Linux 2023 normally includes the agent
+# --------------------------------------------------------
 
-    systemctl enable --now docker
+systemctl enable --now amazon-ssm-agent
 
+# --------------------------------------------------------
+# Clone Server Inventory repository
+# --------------------------------------------------------
 
-    # --------------------------------------------------------
-    # Start SSM Agent
-    # Amazon Linux 2023 normally includes the agent
-    # --------------------------------------------------------
+cd /opt
 
-    systemctl enable --now amazon-ssm-agent
+git clone https://github.com/nasiroddin-khatib/Server-Inventory-Management.git
 
+# --------------------------------------------------------
+# Go to project directory
+# --------------------------------------------------------
 
-    # --------------------------------------------------------
-    # Clone Server Inventory repository
-    # --------------------------------------------------------
+cd /opt/Server-Inventory-Management
 
-    cd /opt
+# --------------------------------------------------------
+# Build custom Jenkins image
+# Jenkins plugins are installed during image build
+# --------------------------------------------------------
 
-    git clone https://github.com/nasiroddin-khatib/Server-Inventory-Management.git
+docker build -t custom-jenkins:latest .
 
+# --------------------------------------------------------
+# Create Jenkins container
+# --------------------------------------------------------
 
-    # --------------------------------------------------------
-    # Go to project directory
-    # --------------------------------------------------------
+docker run -d \
+  --name custom-jenkins \
+  --restart unless-stopped \
+  -p 8080:8080 \
+  -p 50000:50000 \
+  -v jenkins_home:/var/jenkins_home \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v /usr/bin/docker:/usr/bin/docker \
+  -u root \
+  custom-jenkins:latest
 
-    cd /opt/Server-Inventory-Management
-
-
-    # --------------------------------------------------------
-    # Build custom Jenkins image
-    # Jenkins plugins are installed during image build
-    # --------------------------------------------------------
-
-    docker build -t custom-jenkins:latest .
-
-
-    # --------------------------------------------------------
-    # Create Jenkins container
-    # --------------------------------------------------------
-
-    docker run -d \
-      --name custom-jenkins \
-      --restart unless-stopped \
-      -p 8080:8080 \
-      -p 50000:50000 \
-      -v jenkins_home:/var/jenkins_home \
-      -v /var/run/docker.sock:/var/run/docker.sock \
-      -v /usr/bin/docker:/usr/bin/docker \
-      -u root \
-      custom-jenkins:latest
-
-  EOF
-
+EOF
 
   tags = {
-    Name      = "Server-Inventory-Jenkins"
-    Project   = "Server-Inventory"
+    Name        = "Server-Inventory-Jenkins"
+    Project     = "Server-Inventory"
     Environment = "Production"
-    ManagedBy = "Terraform"
+    ManagedBy   = "Terraform"
   }
 }
