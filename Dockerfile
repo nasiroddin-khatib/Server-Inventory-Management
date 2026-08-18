@@ -75,5 +75,4 @@ RUN jenkins-plugin-cli --plugins \
     maven-plugin \
     generic-webhook-trigger \
     github \
-    sonar \
-    deploy-to-container
+    sonar
