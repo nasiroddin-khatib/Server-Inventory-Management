@@ -215,9 +215,6 @@ variable "monitoring_sg_name" {
 
 }
 
-# ======================================================================
-# IAM ROLE
-# ======================================================================
 
 # ==========================================================
 # BACKEND IAM
@@ -234,26 +231,6 @@ variable "backend_role_name" {
 variable "backend_instance_profile_name" {
 
   description = "Backend EC2 Instance Profile"
-
-  type = string
-
-}
-
-# ==========================================================
-# SECRETS MANAGER
-# ==========================================================
-
-variable "db_secret_name" {
-
-  description = "Database Secret Name"
-
-  type = string
-
-}
-
-variable "db_username" {
-
-  description = "Database Username"
 
   type = string
 
@@ -307,6 +284,14 @@ variable "db_allocated_storage" {
 variable "db_storage_type" {
 
   description = "Storage Type"
+
+  type = string
+
+}
+
+variable "db_username" {
+
+  description = "Database Username"
 
   type = string
 
