@@ -187,9 +187,6 @@ output "launch_template_latest_version" {
   value = aws_launch_template.backend.latest_version
 }
 
-output "backend_ami_id" {
-  value = data.aws_ami.backend.id
-}
 
 # ================================================================
 # TG 
@@ -255,18 +252,4 @@ output "frontend_bucket_name" {
   value = aws_s3_bucket.frontend.bucket
 }
 
-### output "cloudfront_domain_name" {
-###  value = aws_cloudfront_distribution.frontend.domain_name
-### }
 
-#### output "cloudfront_distribution_id" {
-####  value = aws_cloudfront_distribution.frontend.id
-#### }
-
-output "cloudfront_domain_name" {
-  value = aws_cloudfront_distribution.frontend.domain_name
-}
-
-output "cloudfront_distribution_id" {
-  value = aws_cloudfront_distribution.frontend.id
-}
