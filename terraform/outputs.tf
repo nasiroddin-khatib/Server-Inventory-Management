@@ -154,25 +154,6 @@ output "backend_instance_profile" {
 
 }
 
-# ==========================================================
-# SECRETS MANAGER
-# ==========================================================
-
-output "database_secret_arn" {
-
-  description = "Database Secret ARN"
-
-  value = aws_secretsmanager_secret.database_secret.arn
-
-}
-
-output "database_secret_name" {
-
-  description = "Database Secret Name"
-
-  value = aws_secretsmanager_secret.database_secret.name
-
-}
 
 # ==========================================================
 # RDS
