@@ -1,6 +1,6 @@
 # ============================================================
 # SonarQube EC2 IAM Role
-# Used for AWS Systems Manager - SSH-less management
+# Used for AWS Systems Manager + Secrets Manager
 # ============================================================
 
 resource "aws_iam_role" "sonarqube_role" {
@@ -29,8 +29,10 @@ resource "aws_iam_role" "sonarqube_role" {
   }
 }
 
-# =======================================================================
-# =======================================================================
+
+# ============================================================
+# Allow SonarQube EC2 to read ONLY its database secret
+# ============================================================
 
 resource "aws_iam_role_policy" "sonarqube_secrets_access" {
   name = "sonarqube-secrets-access"
@@ -55,7 +57,8 @@ resource "aws_iam_role_policy" "sonarqube_secrets_access" {
 
 
 # ============================================================
-# SSM Permission
+# AWS Systems Manager Permission
+# Allows SSH-less EC2 management
 # ============================================================
 
 resource "aws_iam_role_policy_attachment" "sonarqube_ssm" {
@@ -65,7 +68,7 @@ resource "aws_iam_role_policy_attachment" "sonarqube_ssm" {
 
 
 # ============================================================
-# Instance Profile
+# EC2 Instance Profile
 # ============================================================
 
 resource "aws_iam_instance_profile" "sonarqube_profile" {
@@ -83,21 +86,21 @@ resource "aws_instance" "sonarqube" {
   ami           = "ami-006f82a1d5a27da54"
   instance_type = "c7i-flex.large"
 
-  # Existing Terraform public subnet
+  # Existing public subnet
   subnet_id = aws_subnet.public_subnet_1.id
 
-  # Existing SonarQube Security Group
+  # Existing SonarQube security group
   vpc_security_group_ids = [
     aws_security_group.sonarqube_sg.id
   ]
 
-  # Enable public IP
+  # Assign public IP
   associate_public_ip_address = true
 
   # Existing key pair
   key_name = "mykey"
 
-  # SSM access
+  # Attach IAM role
   iam_instance_profile = aws_iam_instance_profile.sonarqube_profile.name
 
 
@@ -113,221 +116,243 @@ resource "aws_instance" "sonarqube" {
 
 
   # ==========================================================
-  # SonarQube Installation
+  # SonarQube User Data
   # ==========================================================
 
   user_data = <<-EOT
-    #!/bin/bash
+#!/bin/bash
 
-    set -e
+set -e
 
-    SONAR_VERSION="10.5.1.90531"
-    SONAR_ZIP="sonarqube-$${SONAR_VERSION}.zip"
-    SONAR_URL="https://binaries.sonarsource.com/Distribution/sonarqube/$${SONAR_ZIP}"
+SONAR_VERSION="10.5.1.90531"
+SONAR_ZIP="sonarqube-$${SONAR_VERSION}.zip"
+SONAR_URL="https://binaries.sonarsource.com/Distribution/sonarqube/$${SONAR_ZIP}"
 
 
-    echo "==============================="
-    echo "Updating Packages"
-    echo "==============================="
+echo "==============================="
+echo "Updating Packages"
+echo "==============================="
 
-    apt update -y
+apt update -y
 
 
-    echo "==============================="
-    echo "Installing Java"
-    echo "==============================="
+echo "==============================="
+echo "Installing Java, AWS CLI and Tools"
+echo "==============================="
 
-    apt install -y openjdk-17-jdk wget unzip curl
+apt install -y openjdk-17-jdk wget unzip curl awscli jq
 
-    java -version
+java -version
 
 
-    echo "==============================="
-    echo "Installing PostgreSQL"
-    echo "==============================="
+echo "==============================="
+echo "Installing PostgreSQL"
+echo "==============================="
 
-    apt install -y postgresql postgresql-contrib
+apt install -y postgresql postgresql-contrib
 
-    systemctl enable postgresql
-    systemctl start postgresql
+systemctl enable postgresql
+systemctl start postgresql
 
 
-    echo "==============================="
-    echo "Creating Database"
-    echo "==============================="
+echo "==============================="
+echo "Retrieving Database Credentials"
+echo "==============================="
 
-    sudo -u postgres psql <<EOF
+SECRET_JSON=$(aws secretsmanager get-secret-value \
+  --secret-id server-inventory/sonarqube/database \
+  --query SecretString \
+  --output text)
 
-    DROP DATABASE IF EXISTS sonarqube;
-    DROP ROLE IF EXISTS sonar;
+SONAR_DB_USER=$(echo "$SECRET_JSON" | jq -r '.username')
+SONAR_DB_PASSWORD=$(echo "$SECRET_JSON" | jq -r '.password')
 
-    CREATE ROLE sonar LOGIN PASSWORD 'sonar123';
-    CREATE DATABASE sonarqube OWNER sonar;
 
-    \c sonarqube
+echo "Secret retrieved successfully."
 
-    ALTER SCHEMA public OWNER TO sonar;
 
-    GRANT ALL ON SCHEMA public TO sonar;
+echo "==============================="
+echo "Creating PostgreSQL Database"
+echo "==============================="
 
-    GRANT ALL PRIVILEGES ON DATABASE sonarqube TO sonar;
+sudo -u postgres psql <<EOF
 
-    ALTER DEFAULT PRIVILEGES IN SCHEMA public
-    GRANT ALL ON TABLES TO sonar;
+DROP DATABASE IF EXISTS sonarqube;
+DROP ROLE IF EXISTS $SONAR_DB_USER;
 
-    ALTER DEFAULT PRIVILEGES IN SCHEMA public
-    GRANT ALL ON SEQUENCES TO sonar;
+CREATE ROLE $SONAR_DB_USER LOGIN PASSWORD '$SONAR_DB_PASSWORD';
 
-    ALTER DEFAULT PRIVILEGES IN SCHEMA public
-    GRANT ALL ON FUNCTIONS TO sonar;
+CREATE DATABASE sonarqube OWNER $SONAR_DB_USER;
 
-    EOF
+\c sonarqube
 
+ALTER SCHEMA public OWNER TO $SONAR_DB_USER;
 
-    echo "==============================="
-    echo "Creating Sonar User"
-    echo "==============================="
+GRANT ALL ON SCHEMA public TO $SONAR_DB_USER;
 
-    if ! id sonar >/dev/null 2>&1; then
-        useradd -r -m -d /opt/sonarqube -s /bin/bash sonar
-    fi
+GRANT ALL PRIVILEGES ON DATABASE sonarqube TO $SONAR_DB_USER;
 
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+GRANT ALL ON TABLES TO $SONAR_DB_USER;
 
-    echo "==============================="
-    echo "Removing Old Installation"
-    echo "==============================="
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+GRANT ALL ON SEQUENCES TO $SONAR_DB_USER;
 
-    rm -rf /opt/sonarqube
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+GRANT ALL ON FUNCTIONS TO $SONAR_DB_USER;
 
+EOF
 
-    echo "==============================="
-    echo "Downloading SonarQube"
-    echo "==============================="
 
-    cd /tmp
+echo "==============================="
+echo "Creating SonarQube Linux User"
+echo "==============================="
 
-    wget -O "$${SONAR_ZIP}" "$${SONAR_URL}"
+if ! id sonar >/dev/null 2>&1; then
+    useradd -r -m -d /opt/sonarqube -s /bin/bash sonar
+fi
 
 
-    echo "==============================="
-    echo "Extracting SonarQube"
-    echo "==============================="
+echo "==============================="
+echo "Removing Old SonarQube Installation"
+echo "==============================="
 
-    unzip -q "$${SONAR_ZIP}" -d /opt
+rm -rf /opt/sonarqube
 
-    mv "/opt/sonarqube-$${SONAR_VERSION}" /opt/sonarqube
 
-    chown -R sonar:sonar /opt/sonarqube
+echo "==============================="
+echo "Downloading SonarQube"
+echo "==============================="
 
+cd /tmp
 
-    echo "==============================="
-    echo "Configuring SonarQube"
-    echo "==============================="
+wget -O "$SONAR_ZIP" "$SONAR_URL"
 
-    cat >> /opt/sonarqube/conf/sonar.properties <<EOF
 
-    sonar.jdbc.username=sonar
-    sonar.jdbc.password=sonar123
-    sonar.jdbc.url=jdbc:postgresql://localhost:5432/sonarqube
+echo "==============================="
+echo "Extracting SonarQube"
+echo "==============================="
 
-    EOF
+unzip -q "$SONAR_ZIP" -d /opt
 
+mv "/opt/sonarqube-$SONAR_VERSION" /opt/sonarqube
 
-    echo "==============================="
-    echo "Kernel Configuration"
-    echo "==============================="
+chown -R sonar:sonar /opt/sonarqube
 
-    echo "vm.max_map_count=524288" > /etc/sysctl.d/99-sonarqube.conf
-    echo "fs.file-max=131072" >> /etc/sysctl.d/99-sonarqube.conf
 
-    sysctl --system
+echo "==============================="
+echo "Configuring SonarQube"
+echo "==============================="
 
+tee /opt/sonarqube/conf/sonar.properties >/dev/null <<EOF
 
-    echo "==============================="
-    echo "Limits Configuration"
-    echo "==============================="
+sonar.jdbc.username=$SONAR_DB_USER
+sonar.jdbc.password=$SONAR_DB_PASSWORD
+sonar.jdbc.url=jdbc:postgresql://localhost:5432/sonarqube
 
-    cat > /etc/security/limits.d/99-sonarqube.conf <<EOF
+EOF
 
-    sonar soft nofile 131072
-    sonar hard nofile 131072
-    sonar soft nproc 8192
-    sonar hard nproc 8192
 
-    EOF
+echo "==============================="
+echo "Kernel Configuration"
+echo "==============================="
 
+echo "vm.max_map_count=524288" > /etc/sysctl.d/99-sonarqube.conf
 
-    echo "==============================="
-    echo "Creating SonarQube Service"
-    echo "==============================="
+echo "fs.file-max=131072" >> /etc/sysctl.d/99-sonarqube.conf
 
-    cat > /etc/systemd/system/sonarqube.service <<EOF
+sysctl --system
 
-    [Unit]
-    Description=SonarQube
-    After=network.target postgresql.service
 
-    [Service]
-    Type=forking
+echo "==============================="
+echo "Limits Configuration"
+echo "==============================="
 
-    User=sonar
-    Group=sonar
+tee /etc/security/limits.d/99-sonarqube.conf >/dev/null <<EOF
 
-    ExecStart=/opt/sonarqube/bin/linux-x86-64/sonar.sh start
-    ExecStop=/opt/sonarqube/bin/linux-x86-64/sonar.sh stop
+sonar soft nofile 131072
+sonar hard nofile 131072
+sonar soft nproc 8192
+sonar hard nproc 8192
 
-    Restart=always
-    RestartSec=10
+EOF
 
-    LimitNOFILE=131072
-    LimitNPROC=8192
 
-    [Install]
-    WantedBy=multi-user.target
+echo "==============================="
+echo "Creating SonarQube Systemd Service"
+echo "==============================="
 
-    EOF
+tee /etc/systemd/system/sonarqube.service >/dev/null <<EOF
 
+[Unit]
+Description=SonarQube
+After=network.target postgresql.service
 
-    echo "==============================="
-    echo "Reloading Systemd"
-    echo "==============================="
+[Service]
+Type=forking
 
-    systemctl daemon-reload
+User=sonar
+Group=sonar
 
-    systemctl enable sonarqube
+ExecStart=/opt/sonarqube/bin/linux-x86-64/sonar.sh start
+ExecStop=/opt/sonarqube/bin/linux-x86-64/sonar.sh stop
 
+Restart=always
+RestartSec=10
 
-    echo "==============================="
-    echo "Starting SonarQube"
-    echo "==============================="
+LimitNOFILE=131072
+LimitNPROC=8192
 
-    systemctl restart sonarqube
+[Install]
+WantedBy=multi-user.target
 
+EOF
 
-    echo "==============================="
-    echo "Waiting for SonarQube"
-    echo "==============================="
 
-    sleep 15
+echo "==============================="
+echo "Reloading Systemd"
+echo "==============================="
 
+systemctl daemon-reload
 
-    echo "==============================="
-    echo "Service Status"
-    echo "==============================="
+systemctl enable sonarqube
 
-    systemctl status sonarqube --no-pager
 
-  EOT
+echo "==============================="
+echo "Starting SonarQube"
+echo "==============================="
 
+systemctl restart sonarqube
 
-  # ==========================================================
-  # Tags
-  # ==========================================================
 
-  tags = {
-    Name        = "Server-Inventory-Sonarqube"
-    Project     = "Server-Inventory"
-    Environment = "Production"
-    ManagedBy   = "Terraform"
-  }
+echo "==============================="
+echo "Waiting for SonarQube"
+echo "==============================="
+
+sleep 15
+
+
+echo "==============================="
+echo "SonarQube Service Status"
+echo "==============================="
+
+systemctl status sonarqube --no-pager
+
+echo "==============================="
+echo "SonarQube Installation Completed"
+echo "==============================="
+
+EOT
+
+
+# ============================================================
+# Tags
+# ============================================================
+
+tags = {
+  Name        = "Server-Inventory-Sonarqube"
+  Project     = "Server-Inventory"
+  Environment = "Production"
+  ManagedBy   = "Terraform"
+}
 }
