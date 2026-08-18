@@ -259,15 +259,6 @@ variable "db_username" {
 
 }
 
-variable "db_password" {
-
-  description = "Database Password"
-
-  type = string
-
-  sensitive = true
-
-}
 
 # ==========================================================
 # RDS
