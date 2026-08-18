@@ -70,7 +70,7 @@ resource "aws_db_instance" "postgres" {
 
   skip_final_snapshot = true
 
-  backup_retention_period = 7
+  backup_retention_period = 1
 
   auto_minor_version_upgrade = true
 
