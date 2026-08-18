@@ -68,3 +68,12 @@ RUN git --version && \
 
     
 USER jenkins
+
+RUN jenkins-plugin-cli --plugins \
+    workflow-aggregator \
+    pipeline-stage-view \
+    maven-plugin \
+    generic-webhook-trigger \
+    github \
+    sonar \
+    deploy-to-container
