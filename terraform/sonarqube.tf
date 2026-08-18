@@ -29,6 +29,30 @@ resource "aws_iam_role" "sonarqube_role" {
   }
 }
 
+# =======================================================================
+# =======================================================================
+
+resource "aws_iam_role_policy" "sonarqube_secrets_access" {
+  name = "sonarqube-secrets-access"
+  role = aws_iam_role.sonarqube_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+
+    Statement = [
+      {
+        Effect = "Allow"
+
+        Action = [
+          "secretsmanager:GetSecretValue"
+        ]
+
+        Resource = aws_secretsmanager_secret.sonarqube_database.arn
+      }
+    ]
+  })
+}
+
 
 # ============================================================
 # SSM Permission
