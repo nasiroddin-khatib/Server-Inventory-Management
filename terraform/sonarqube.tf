@@ -84,7 +84,7 @@ resource "aws_iam_instance_profile" "sonarqube_profile" {
 resource "aws_instance" "sonarqube" {
 
   ami           = "ami-006f82a1d5a27da54"
-  instance_type = "c7i-flex.large"
+  instance_type = "t3.medium"
 
   # Existing public subnet
   subnet_id = aws_subnet.public_subnet_1.id
