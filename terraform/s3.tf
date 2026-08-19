@@ -14,6 +14,7 @@ resource "aws_s3_bucket" "frontend" {
   }
 }
 
+
 ############################################
 # Versioning
 ############################################
@@ -26,6 +27,7 @@ resource "aws_s3_bucket_versioning" "frontend" {
     status = "Enabled"
   }
 }
+
 
 ############################################
 # Server Side Encryption
@@ -42,10 +44,9 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "frontend" {
       sse_algorithm = "AES256"
 
     }
-
   }
-
 }
+
 
 ############################################
 # Ownership Controls
@@ -60,8 +61,8 @@ resource "aws_s3_bucket_ownership_controls" "frontend" {
     object_ownership = "BucketOwnerEnforced"
 
   }
-
 }
+
 
 ############################################
 # Public Access Block
@@ -75,8 +76,8 @@ resource "aws_s3_bucket_public_access_block" "frontend" {
   ignore_public_acls      = false
   block_public_policy     = false
   restrict_public_buckets = false
-
 }
+
 
 ############################################
 # Static Website Hosting
@@ -93,8 +94,8 @@ resource "aws_s3_bucket_website_configuration" "frontend" {
   error_document {
     key = "index.html"
   }
-
 }
+
 
 ############################################
 # Public Read Policy
@@ -105,7 +106,6 @@ data "aws_iam_policy_document" "frontend_public_policy" {
   statement {
 
     sid    = "PublicReadGetObject"
-
     effect = "Allow"
 
     principals {
@@ -122,10 +122,9 @@ data "aws_iam_policy_document" "frontend_public_policy" {
     resources = [
       "${aws_s3_bucket.frontend.arn}/*"
     ]
-
   }
-
 }
+
 
 ############################################
 # Bucket Policy
@@ -137,4 +136,7 @@ resource "aws_s3_bucket_policy" "frontend" {
 
   policy = data.aws_iam_policy_document.frontend_public_policy.json
 
+  depends_on = [
+    aws_s3_bucket_public_access_block.frontend
+  ]
 }
