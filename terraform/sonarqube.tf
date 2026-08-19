@@ -49,7 +49,7 @@ resource "aws_iam_role_policy" "sonarqube_secrets_access" {
           "secretsmanager:GetSecretValue"
         ]
 
-        Resource = aws_secretsmanager_secret.sonarqube_database.arn
+        Resource = data.aws_secretsmanager_secret.sonarqube_database.arn
       }
     ]
   })
