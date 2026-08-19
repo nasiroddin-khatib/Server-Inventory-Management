@@ -1,0 +1,277 @@
+# ============================================================
+# Nexus EC2 IAM Role
+# Used for AWS Systems Manager - SSH-less management
+# ============================================================
+
+resource "aws_iam_role" "nexus_role" {
+  name = "server-inventory-nexus-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+
+    Statement = [
+      {
+        Effect = "Allow"
+
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
+
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+
+  tags = {
+    Name      = "server-inventory-nexus-role"
+    Project   = "Server-Inventory"
+    ManagedBy = "Terraform"
+  }
+}
+
+
+# ============================================================
+# AWS Systems Manager Permission
+# Allows SSH-less management
+# ============================================================
+
+resource "aws_iam_role_policy_attachment" "nexus_ssm" {
+  role       = aws_iam_role.nexus_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
+
+# ============================================================
+# EC2 Instance Profile
+# ============================================================
+
+resource "aws_iam_instance_profile" "nexus_profile" {
+  name = "server-inventory-nexus-profile"
+  role = aws_iam_role.nexus_role.name
+}
+
+
+# ============================================================
+# Nexus Repository EC2 Instance
+# ============================================================
+
+resource "aws_instance" "nexus" {
+
+  # Amazon Linux 2023 x86_64
+  ami = "ami-0ac7b260cf76d8865"
+
+  # 2 vCPU / 4 GiB
+  instance_type = "c7i-flex.large"
+
+  # Existing public subnet
+  subnet_id = aws_subnet.public_subnet_1.id
+
+  # Existing Nexus security group
+  vpc_security_group_ids = [
+    aws_security_group.nexus_sg.id
+  ]
+
+  # Assign public IP
+  associate_public_ip_address = true
+
+  # Existing key pair
+  key_name = "mykey"
+
+  # Attach IAM role
+  iam_instance_profile = aws_iam_instance_profile.nexus_profile.name
+
+
+  # ==========================================================
+  # Root Volume
+  # ==========================================================
+
+  root_block_device {
+    volume_size           = 20
+    volume_type           = "gp3"
+    delete_on_termination = true
+  }
+
+
+  # ==========================================================
+  # Nexus Installation
+  # ==========================================================
+
+  user_data = <<-EOT
+#!/bin/bash
+
+set -e
+
+NEXUS_VERSION="3.79.0-09"
+NEXUS_TAR="nexus-unix-x86-64-$${NEXUS_VERSION}.tar.gz"
+NEXUS_URL="https://download.sonatype.com/nexus/3/$${NEXUS_TAR}"
+
+echo "========================================"
+echo "Updating Packages"
+echo "========================================"
+
+dnf update -y
+
+
+echo "========================================"
+echo "Installing Required Packages"
+echo "========================================"
+
+dnf install -y wget tar
+
+
+echo "========================================"
+echo "Starting SSM Agent"
+echo "========================================"
+
+systemctl enable --now amazon-ssm-agent
+
+
+echo "========================================"
+echo "Creating Nexus User"
+echo "========================================"
+
+if ! id nexus >/dev/null 2>&1; then
+    useradd --system --create-home --shell /bin/bash nexus
+fi
+
+
+echo "========================================"
+echo "Creating Nexus Directories"
+echo "========================================"
+
+mkdir -p /opt/sonatype-work
+
+
+echo "========================================"
+echo "Downloading Nexus Repository"
+echo "========================================"
+
+cd /tmp
+
+wget -O "$NEXUS_TAR" "$NEXUS_URL"
+
+
+echo "========================================"
+echo "Extracting Nexus Repository"
+echo "========================================"
+
+tar -xzf "$NEXUS_TAR" -C /opt
+
+
+echo "========================================"
+echo "Configuring Nexus Directory"
+echo "========================================"
+
+mv "/opt/nexus-$NEXUS_VERSION" /opt/nexus
+
+
+echo "========================================"
+echo "Configuring Nexus Data Directory"
+echo "========================================"
+
+# Nexus uses ../sonatype-work by default.
+# Create the expected directory structure.
+
+mkdir -p /opt/sonatype-work/nexus3
+
+
+echo "========================================"
+echo "Configuring Nexus Runtime User"
+echo "========================================"
+
+cat > /opt/nexus/bin/nexus.rc <<'EOF'
+run_as_user="nexus"
+EOF
+
+
+echo "========================================"
+echo "Setting Ownership"
+echo "========================================"
+
+chown -R nexus:nexus /opt/nexus
+chown -R nexus:nexus /opt/sonatype-work
+
+
+echo "========================================"
+echo "Creating Nexus Systemd Service"
+echo "========================================"
+
+cat > /etc/systemd/system/nexus.service <<'EOF'
+
+[Unit]
+Description=Nexus Repository
+After=network.target
+
+[Service]
+Type=forking
+
+LimitNOFILE=65536
+
+ExecStart=/opt/nexus/bin/nexus start
+ExecStop=/opt/nexus/bin/nexus stop
+
+User=nexus
+Group=nexus
+
+Restart=on-abort
+TimeoutSec=600
+
+[Install]
+WantedBy=multi-user.target
+
+EOF
+
+
+echo "========================================"
+echo "Reloading Systemd"
+echo "========================================"
+
+systemctl daemon-reload
+
+
+echo "========================================"
+echo "Enabling Nexus Service"
+echo "========================================"
+
+systemctl enable nexus.service
+
+
+echo "========================================"
+echo "Starting Nexus Repository"
+echo "========================================"
+
+systemctl start nexus.service
+
+
+echo "========================================"
+echo "Waiting For Nexus"
+echo "========================================"
+
+sleep 30
+
+
+echo "========================================"
+echo "Nexus Service Status"
+echo "========================================"
+
+systemctl status nexus.service --no-pager
+
+
+echo "========================================"
+echo "Nexus Installation Completed"
+echo "========================================"
+
+EOT
+
+
+  # ==========================================================
+  # Tags
+  # ==========================================================
+
+  tags = {
+    Name        = "Server-Inventory-Nexus"
+    Project     = "Server-Inventory"
+    Environment = "Production"
+    ManagedBy   = "Terraform"
+  }
+}
