@@ -349,3 +349,16 @@ variable "environment" {
   description = "Environment name"
   type        = string
 }
+
+############################################
+# Backend AMI
+############################################
+
+variable "backend_ami_id" {
+  description = "AMI ID created by Packer for backend instances"
+  type        = string
+}
+
+
+
+
