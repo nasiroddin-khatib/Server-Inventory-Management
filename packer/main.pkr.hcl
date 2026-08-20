@@ -1,5 +1,5 @@
 ############################################
-# AWS Provider
+# Packer Required Plugin
 ############################################
 
 packer {
@@ -13,10 +13,11 @@ packer {
 
 
 ############################################
-# Existing VPC
+# Latest Amazon Linux 2023 AMI
 ############################################
 
 data "amazon-ami" "source" {
+
   filters = {
     name                = "al2023-ami-2023.*-x86_64"
     root-device-type    = "ebs"
@@ -33,6 +34,7 @@ data "amazon-ami" "source" {
 ############################################
 
 data "aws_subnet" "packer_subnet" {
+
   filter {
     name   = "tag:Name"
     values = ["public-subnet-1"]
@@ -45,6 +47,7 @@ data "aws_subnet" "packer_subnet" {
 ############################################
 
 data "aws_security_group" "packer_sg" {
+
   filter {
     name   = "group-name"
     values = ["Server-Inventory-packer-sg"]
@@ -53,38 +56,47 @@ data "aws_security_group" "packer_sg" {
 
 
 ############################################
-# Packer AMI
+# Packer AMI Source
 ############################################
 
 source "amazon-ebs" "backend" {
 
   ##########################################
-  # AWS
+  # AWS Region
   ##########################################
 
   region = var.aws_region
 
+
   ##########################################
-  # Source AMI
+  # Latest Amazon Linux 2023
   ##########################################
 
-  source_ami = "ami-035827357e3c7e810"
+  source_ami = data.amazon-ami.source.id
+
+
+  ##########################################
+  # Instance Type
+  ##########################################
 
   instance_type = var.instance_type
 
+
   ##########################################
-  # Existing AWS Key Pair
+  # AWS Key Pair
   ##########################################
 
   ssh_keypair_name = var.key_name
 
+
   ##########################################
-  # Jenkins SSH Private Key
+  # SSH Configuration
   ##########################################
 
   ssh_username = var.ssh_username
 
   ssh_private_key_file = var.ssh_private_key_file
+
 
   ##########################################
   # Existing Network
@@ -96,17 +108,20 @@ source "amazon-ebs" "backend" {
 
   associate_public_ip_address = true
 
+
   ##########################################
   # AMI Name
   ##########################################
 
   ami_name = "server-inventory-backend-{{timestamp}}"
 
+
   ##########################################
-  # Root Volume
+  # Root EBS Volume
   ##########################################
 
   launch_block_device_mappings {
+
     device_name           = "/dev/xvda"
     volume_size           = 20
     volume_type           = "gp3"
@@ -114,22 +129,25 @@ source "amazon-ebs" "backend" {
     encrypted             = true
   }
 
+
   ##########################################
   # AMI Tags
   ##########################################
 
   tags = {
+
     Name        = "server-inventory-backend-ami"
     Project     = "Server-Inventory"
     Environment = "Production"
     ManagedBy   = "Packer"
   }
 
+
   ##########################################
-  # Skip Stop Before Create
+  # Cleanup Existing AMIs/Snapshots
   ##########################################
 
-  force_deregister = true
+  force_deregister     = true
   force_delete_snapshot = true
 }
 
@@ -163,17 +181,20 @@ build {
 
       "sudo dnf update -y",
 
+
       "echo '========================================'",
-      "echo 'Installing Java 17'",
+      "echo 'Installing Java 17 and wget'",
       "echo '========================================'",
 
       "sudo dnf install -y java-17-amazon-corretto-devel wget",
 
+
       "echo '========================================'",
-      "echo 'Creating Tomcat user'",
+      "echo 'Creating Tomcat User'",
       "echo '========================================'",
 
       "sudo useradd -r -m -U -d /opt/tomcat -s /bin/false tomcat || true",
+
 
       "echo '========================================'",
       "echo 'Downloading Tomcat 10.1.57'",
@@ -182,6 +203,7 @@ build {
       "cd /tmp",
 
       "wget -q https://downloads.apache.org/tomcat/tomcat-10/v10.1.57/bin/apache-tomcat-10.1.57.tar.gz",
+
 
       "echo '========================================'",
       "echo 'Installing Tomcat'",
@@ -195,11 +217,13 @@ build {
 
       "sudo chmod -R 755 /opt/tomcat",
 
+
       "echo '========================================'",
-      "echo 'Creating Tomcat systemd service'",
+      "echo 'Creating Tomcat Systemd Service'",
       "echo '========================================'",
 
-      "sudo tee /etc/systemd/system/tomcat.service > /dev/null <<'SERVICE_EOF'\n[Unit]\nDescription=Apache Tomcat\nAfter=network.target\n\n[Service]\nType=forking\n\nUser=tomcat\nGroup=tomcat\n\nEnvironment=\"JAVA_HOME=/usr/lib/jvm/java-17-amazon-corretto\"\nEnvironment=\"CATALINA_PID=/opt/tomcat/temp/tomcat.pid\"\nEnvironment=\"CATALINA_HOME=/opt/tomcat\"\nEnvironment=\"CATALINA_BASE=/opt/tomcat\"\nEnvironment=\"CATALINA_OPTS=-Xms512M -Xmx1024M\"\nEnvironment=\"JAVA_OPTS=-Djava.security.egd=file:/dev/./urandom\"\n\nExecStart=/opt/tomcat/bin/startup.sh\nExecStop=/opt/tomcat/bin/shutdown.sh\n\nRestart=on-failure\n\n[Install]\nWantedBy=multi-user.target\nSERVICE_EOF",
+      "sudo tee /etc/systemd/system/tomcat.service > /dev/null <<'SERVICE_EOF'\n[Unit]\nDescription=Apache Tomcat\nAfter=network.target\n\n[Service]\nType=forking\nUser=tomcat\nGroup=tomcat\nEnvironment=\"JAVA_HOME=/usr/lib/jvm/java-17-amazon-corretto\"\nEnvironment=\"CATALINA_PID=/opt/tomcat/temp/tomcat.pid\"\nEnvironment=\"CATALINA_HOME=/opt/tomcat\"\nEnvironment=\"CATALINA_BASE=/opt/tomcat\"\nEnvironment=\"CATALINA_OPTS=-Xms512M -Xmx1024M\"\nEnvironment=\"JAVA_OPTS=-Djava.security.egd=file:/dev/./urandom\"\nExecStart=/opt/tomcat/bin/startup.sh\nExecStop=/opt/tomcat/bin/shutdown.sh\nRestart=on-failure\n\n[Install]\nWantedBy=multi-user.target\nSERVICE_EOF",
+
 
       "echo '========================================'",
       "echo 'Starting Tomcat'",
@@ -223,7 +247,7 @@ build {
 
 
   ##########################################
-  # Copy WAR from Jenkins workspace
+  # Copy WAR from Jenkins Workspace
   ##########################################
 
   provisioner "file" {
@@ -276,7 +300,7 @@ build {
 
 
   ##########################################
-  # Verify Deployment
+  # Verify Application
   ##########################################
 
   provisioner "shell" {
@@ -286,7 +310,7 @@ build {
       "set -e",
 
       "echo '========================================'",
-      "echo 'Testing Tomcat'",
+      "echo 'Testing Backend Application'",
       "echo '========================================'",
 
       "curl -f http://localhost:8080/server-inventory/actuator/health",
@@ -314,5 +338,16 @@ build {
 
       "sudo dnf clean all"
     ]
+  }
+
+
+  ##########################################
+  # Generate AMI Manifest
+  ##########################################
+
+  post-processor "manifest" {
+
+    output     = "packer-manifest.json"
+    strip_path = true
   }
 }
