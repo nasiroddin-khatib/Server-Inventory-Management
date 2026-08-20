@@ -4,8 +4,7 @@
 
 // Change this URL after deploying your backend.
 
-const BASE_URL = "http://13.206.197.0:8080/server-inventory/api/servers";
-
+const BASE_URL = "http://${alb_dns_name}/server-inventory/api/servers";
 
 // ===============================
 // GET ALL SERVERS
