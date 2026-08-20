@@ -117,3 +117,7 @@ environment = "production"
 # ==========================================================
 
 frontend_bucket_name = "server-inventory-frontend-38122"
+
+
+project     = "server-inventory"
+environment = "production"
