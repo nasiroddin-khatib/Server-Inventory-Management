@@ -8,7 +8,7 @@ resource "aws_autoscaling_group" "backend" {
 
   min_size         = 1
   desired_capacity = 1
-  max_size         = 2
+  max_size         = 1
 
   vpc_zone_identifier = [
     aws_subnet.private_subnet_1.id,
