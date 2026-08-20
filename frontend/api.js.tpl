@@ -2,8 +2,6 @@
 // Backend Base URL
 // ===============================
 
-// Change this URL after deploying your backend.
-
 const BASE_URL = "http://${alb_dns_name}/server-inventory/api/servers";
 
 // ===============================
