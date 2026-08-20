@@ -134,13 +134,6 @@
 
                 id MUST match the id inside Jenkins settings.xml
 
-                Example:
-
-                <server>
-                    <id>nexus</id>
-                    <username>admin</username>
-                    <password>********</password>
-                </server>
 
             -->
 
