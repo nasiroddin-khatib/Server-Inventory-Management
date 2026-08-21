@@ -61,7 +61,7 @@ pipeline {
 
                 dir('backend') {
 
-                    sh 'mvn clean package'
+                    sh 'mvn package'
 
                 }
             }
