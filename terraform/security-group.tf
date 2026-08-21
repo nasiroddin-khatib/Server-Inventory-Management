@@ -70,6 +70,25 @@ resource "aws_security_group" "backend_sg" {
 
   }
 
+############################################
+# Allow Prometheus to access Backend
+############################################
+
+resource "aws_vpc_security_group_ingress_rule" "backend_from_monitoring" {
+
+  security_group_id = aws_security_group.backend_sg.id
+
+  description = "Allow Prometheus to scrape Spring Boot Actuator"
+
+  ip_protocol = "tcp"
+
+  from_port = 8080
+  to_port   = 8080
+
+  referenced_security_group_id = aws_security_group.monitoring_sg.id
+
+}
+
   
 
   egress {
