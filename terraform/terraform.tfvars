@@ -137,4 +137,8 @@ monitoring_sg_name = "Server-Inventory-monitoring-sg"
 admin_ip = "152.57.155.252/32"
 
 
+############################################
+# Nexus Secrets Manager
+############################################
 
+nexus_secret_name = "server-inventory/nexus-credentials"
