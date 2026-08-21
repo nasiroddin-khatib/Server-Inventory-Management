@@ -121,3 +121,20 @@ frontend_bucket_name = "server-inventory-frontend-38122"
 
 project     = "server-inventory"
 environment = "production"
+
+
+
+############################################
+# Monitoring
+############################################
+
+monitoring_instance_type = "t3.small"
+
+monitoring_key_name = "mykey"
+
+monitoring_sg_name = "Server-Inventory-monitoring-sg"
+
+admin_ip = "152.57.155.252/32"
+
+
+
