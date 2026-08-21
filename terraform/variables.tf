@@ -398,7 +398,17 @@ variable "admin_ip" {
 
 }
 
+variable "nexus_username" {
+  description = "Nexus username"
+  type        = string
+  sensitive   = true
+}
 
+variable "nexus_password" {
+  description = "Nexus password"
+  type        = string
+  sensitive   = true
+}
 
 
 
