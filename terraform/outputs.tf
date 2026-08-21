@@ -324,3 +324,9 @@ output "grafana_url" {
   value = "http://${aws_instance.monitoring.public_ip}:3000"
 
 }
+
+
+output "nexus_public_ip" {
+  description = "Public IP address of Nexus server"
+  value       = aws_instance.nexus.public_ip
+}
