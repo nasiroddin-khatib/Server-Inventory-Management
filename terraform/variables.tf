@@ -359,6 +359,46 @@ variable "backend_ami_id" {
   type        = string
 }
 
+############################################
+# Monitoring
+############################################
+
+variable "monitoring_instance_type" {
+
+  description = "EC2 instance type for monitoring server"
+
+  type = string
+
+}
+
+
+variable "monitoring_key_name" {
+
+  description = "AWS key pair for monitoring server"
+
+  type = string
+
+}
+
+
+variable "monitoring_sg_name" {
+
+  description = "Security group name for monitoring server"
+
+  type = string
+
+}
+
+
+variable "admin_ip" {
+
+  description = "Public IP allowed to access monitoring services"
+
+  type = string
+
+}
+
+
 
 
 
