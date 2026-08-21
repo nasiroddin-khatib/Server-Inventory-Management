@@ -23,6 +23,8 @@
     <properties>
         <java.version>17</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<nexus.url>${env.NEXUS_URL}</nexus.url>
+
     </properties>
 
     <dependencies>
@@ -127,7 +129,7 @@
             <id>nexus</id>
             <name>Server-Inventory</name>
             <url>
-                http://3.110.216.240:8081/repository/Server-Inventory/
+                ${nexus.url}/repository/Server-Inventory/
             </url>
 
         </repository>
