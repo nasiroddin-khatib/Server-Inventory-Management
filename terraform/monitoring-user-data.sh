@@ -306,3 +306,77 @@ echo "=========================================="
 echo "Prometheus : http://SERVER-IP:9090"
 echo "Grafana    : http://SERVER-IP:3000"
 echo "=========================================="
+
+
+############################################
+# Prometheus Configuration
+############################################
+
+sudo tee /etc/prometheus/prometheus.yml > /dev/null <<'EOF'
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+
+  - job_name: "backend"
+
+    metrics_path: "/server-inventory/actuator/prometheus"
+
+    ec2_sd_configs:
+      - region: "ap-south-1"
+        port: 8080
+
+        filters:
+          - name: "tag:role"
+            values:
+              - "backend"
+
+    relabel_configs:
+
+      - source_labels:
+          - "__meta_ec2_private_ip"
+        target_label: "__address__"
+        replacement: "$1:8080"
+
+      - source_labels:
+          - "__meta_ec2_tag_Name"
+        target_label: "instance_name"
+
+      - source_labels:
+          - "__meta_ec2_availability_zone"
+        target_label: "availability_zone"
+EOF
+
+
+############################################
+# Set Permissions
+############################################
+
+sudo chown prometheus:prometheus /etc/prometheus/prometheus.yml
+
+
+############################################
+# Validate Prometheus Configuration
+############################################
+
+sudo promtool check config /etc/prometheus/prometheus.yml
+
+
+############################################
+# Restart Prometheus
+############################################
+
+sudo systemctl restart prometheus
+
+
+############################################
+# Check Prometheus
+############################################
+
+sudo systemctl is-active --quiet prometheus
+
+echo "==========================================="
+echo "Prometheus configured successfully"
+echo "Backend EC2 dynamic discovery enabled"
+echo "==========================================="
