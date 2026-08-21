@@ -225,6 +225,7 @@ resource "aws_launch_template" "backend" {
       Project     = var.project
       Environment = var.environment
       ManagedBy   = "Terraform"
+Role = "backend"
     }
   }
 
