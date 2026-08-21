@@ -121,45 +121,15 @@
 
     </build>
 
-    <!-- ===================================================== -->
-    <!-- Nexus Repository Configuration -->
-    <!-- ===================================================== -->
-
     <distributionManagement>
 
-        <repository>
-
-            <!--
-                IMPORTANT
-
-                id MUST match the id inside Jenkins settings.xml
-
-
-            -->
-
+        <repository>        
             <id>nexus</id>
-
-            <!--
-                Change this ONLY if your repository name changes.
-
-                Current Repository Name:
-                Server-Inventory
-            -->
-
             <name>Server-Inventory</name>
-
-            <!--
-                Change ONLY if:
-                - Nexus IP changes
-                - Repository name changes
-            -->
-
             <url>
                 http://3.110.216.240:8081/repository/Server-Inventory/
             </url>
 
         </repository>
-
     </distributionManagement>
-
 </project>
