@@ -410,5 +410,12 @@ variable "nexus_password" {
   sensitive   = true
 }
 
+############################################
+# Nexus Secrets Manager
+############################################
 
+variable "nexus_secret_name" {
+  description = "Secrets Manager secret name for Nexus credentials"
+  type        = string
+}
 
