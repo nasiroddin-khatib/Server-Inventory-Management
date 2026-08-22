@@ -11,7 +11,34 @@ pipeline {
             }
         }
 
+stage('Configure Nexus Credentials') {
 
+    steps {
+
+        input(
+            message: '''
+========================================
+Nexus Credentials Required
+========================================
+
+Terraform has created the Nexus Secrets Manager secret.
+
+Now:
+
+1. Open AWS Secrets Manager
+2. Open: server-inventory/nexus-credentials
+3. Store the Nexus username and password
+4. Save the secret
+5. Come back here
+6. Click "Proceed"
+
+========================================
+''',
+            ok: 'Credentials Stored - Continue Pipeline'
+        )
+
+    }
+}
         stage('Build') {
             steps {
                 dir('backend') {
