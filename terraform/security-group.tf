@@ -39,8 +39,7 @@ resource "aws_vpc_security_group_ingress_rule" "alb_http" {
 # ------------------------------------------------------------
 # ALB - Allow HTTPS from Internet
 # ------------------------------------------------------------
-# Keep this rule if you are using HTTPS/ACM.
-# If HTTPS is not being used yet, you can remove this rule.
+
 
 resource "aws_vpc_security_group_ingress_rule" "alb_https" {
 
@@ -95,14 +94,7 @@ resource "aws_security_group" "backend_sg" {
 # ------------------------------------------------------------
 # BACKEND - Allow application traffic from ALB
 # ------------------------------------------------------------
-# IMPORTANT:
-# Backend is NOT open to the Internet.
-#
-# ALB SG
-#    |
-#    | TCP 8080
-#    ↓
-# Backend SG
+
 
 resource "aws_vpc_security_group_ingress_rule" "backend_from_alb" {
 
@@ -123,11 +115,7 @@ resource "aws_vpc_security_group_ingress_rule" "backend_from_alb" {
 # BACKEND - Allow Prometheus to scrape Actuator
 # ------------------------------------------------------------
 #
-# Prometheus
-#    |
-#    | TCP 8080
-#    ↓
-# Backend /actuator/prometheus
+
 
 resource "aws_vpc_security_group_ingress_rule" "backend_from_monitoring" {
 
@@ -248,7 +236,7 @@ resource "aws_vpc_security_group_ingress_rule" "jenkins_http" {
   from_port = 8080
   to_port   = 8080
 
-  cidr_ipv4 = "152.57.155.252/32"
+  cidr_ipv4 = "0.0.0.0/0"
 }
 
 
@@ -302,7 +290,7 @@ resource "aws_vpc_security_group_ingress_rule" "sonarqube_http" {
   from_port = 9000
   to_port   = 9000
 
-  cidr_ipv4 = "152.57.155.252/32"
+  cidr_ipv4 = "0.0.0.0/0"
 }
 
 
@@ -356,7 +344,7 @@ resource "aws_vpc_security_group_ingress_rule" "nexus_http" {
   from_port = 8081
   to_port   = 8081
 
-  cidr_ipv4 = "152.57.155.252/32"
+  cidr_ipv4 = "0.0.0.0/0"
 }
 
 
@@ -432,7 +420,7 @@ resource "aws_vpc_security_group_ingress_rule" "monitoring_grafana" {
   from_port = 3000
   to_port   = 3000
 
-  cidr_ipv4 = "152.57.155.252/32"
+  cidr_ipv4 = "0.0.0.0/0"
 }
 
 
@@ -451,7 +439,7 @@ resource "aws_vpc_security_group_ingress_rule" "monitoring_prometheus" {
   from_port = 9090
   to_port   = 9090
 
-  cidr_ipv4 = "152.57.155.252/32"
+  cidr_ipv4 = "0.0.0.0/0"
 }
 
 
