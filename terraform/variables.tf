@@ -332,15 +332,6 @@ variable "frontend_bucket_name" {
 
 }
 
-############################################
-# Project
-############################################
-
-variable "project" {
-  description = "Project name"
-  type        = string
-}
-
 
 
 ############################################
