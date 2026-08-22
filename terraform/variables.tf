@@ -341,14 +341,7 @@ variable "project" {
   type        = string
 }
 
-############################################
-# Environment
-############################################
 
-variable "environment" {
-  description = "Environment name"
-  type        = string
-}
 
 ############################################
 # Backend AMI
@@ -380,14 +373,6 @@ variable "monitoring_key_name" {
 
 }
 
-
-variable "monitoring_sg_name" {
-
-  description = "Security group name for monitoring server"
-
-  type = string
-
-}
 
 
 variable "admin_ip" {
