@@ -25,7 +25,10 @@ data "amazon-ami" "source" {
   }
 
   most_recent = true
-  owners      = ["137112412989"]
+
+  owners = [
+    "137112412989"
+  ]
 }
 
 
@@ -36,8 +39,11 @@ data "amazon-ami" "source" {
 data "aws_subnet" "packer_subnet" {
 
   filter {
-    name   = "tag:Name"
-    values = ["public-subnet-1"]
+    name = "tag:Name"
+
+    values = [
+      "public-subnet-1"
+    ]
   }
 }
 
@@ -49,9 +55,23 @@ data "aws_subnet" "packer_subnet" {
 data "aws_security_group" "packer_sg" {
 
   filter {
-    name   = "group-name"
-    values = ["Server-Inventory-packer-sg"]
+    name = "group-name"
+
+    values = [
+      "Server-Inventory-packer-sg"
+    ]
   }
+}
+
+
+############################################
+# Existing Backend IAM Instance Profile
+############################################
+
+data "aws_iam_instance_profile" "backend_instance_profile" {
+
+  name = var.backend_instance_profile_name
+
 }
 
 
@@ -69,14 +89,14 @@ source "amazon-ebs" "backend" {
 
 
   ##########################################
-  # Latest Amazon Linux 2023
+  # Source AMI
   ##########################################
 
   source_ami = data.amazon-ami.source.id
 
 
   ##########################################
-  # Instance Type
+  # Packer Build Instance Type
   ##########################################
 
   instance_type = var.instance_type
@@ -110,6 +130,13 @@ source "amazon-ebs" "backend" {
 
 
   ##########################################
+  # IAM Instance Profile
+  ##########################################
+
+  iam_instance_profile = data.aws_iam_instance_profile.backend_instance_profile.name
+
+
+  ##########################################
   # AMI Name
   ##########################################
 
@@ -122,11 +149,16 @@ source "amazon-ebs" "backend" {
 
   launch_block_device_mappings {
 
-    device_name           = "/dev/xvda"
-    volume_size           = 20
-    volume_type           = "gp3"
+    device_name = "/dev/xvda"
+
+    volume_size = 20
+
+    volume_type = "gp3"
+
     delete_on_termination = true
-    encrypted             = true
+
+    encrypted = true
+
   }
 
 
@@ -136,10 +168,14 @@ source "amazon-ebs" "backend" {
 
   tags = {
 
-    Name        = "server-inventory-backend-ami"
-    Project     = "Server-Inventory"
+    Name = "server-inventory-backend-ami"
+
+    Project = "Server-Inventory"
+
     Environment = "Production"
-    ManagedBy   = "Packer"
+
+    ManagedBy = "Packer"
+
   }
 
 
@@ -147,8 +183,10 @@ source "amazon-ebs" "backend" {
   # Cleanup Existing AMIs/Snapshots
   ##########################################
 
-  force_deregister     = true
+  force_deregister = true
+
   force_delete_snapshot = true
+
 }
 
 
@@ -176,28 +214,36 @@ build {
       "set -e",
 
       "echo '========================================'",
+
       "echo 'Updating Amazon Linux'",
+
       "echo '========================================'",
 
       "sudo dnf update -y",
 
 
       "echo '========================================'",
+
       "echo 'Installing Java 17 and wget'",
+
       "echo '========================================'",
 
       "sudo dnf install -y java-17-amazon-corretto-devel wget",
 
 
       "echo '========================================'",
+
       "echo 'Creating Tomcat User'",
+
       "echo '========================================'",
 
       "sudo useradd -r -m -U -d /opt/tomcat -s /bin/false tomcat || true",
 
 
       "echo '========================================'",
+
       "echo 'Downloading Tomcat 10.1.57'",
+
       "echo '========================================'",
 
       "cd /tmp",
@@ -206,7 +252,9 @@ build {
 
 
       "echo '========================================'",
+
       "echo 'Installing Tomcat'",
+
       "echo '========================================'",
 
       "sudo mkdir -p /opt/tomcat",
@@ -219,14 +267,18 @@ build {
 
 
       "echo '========================================'",
+
       "echo 'Creating Tomcat Systemd Service'",
-      "echo '========================================'",
-
-      "sudo tee /etc/systemd/system/tomcat.service > /dev/null <<'SERVICE_EOF'\n[Unit]\nDescription=Apache Tomcat\nAfter=network.target\n\n[Service]\nType=forking\nUser=tomcat\nGroup=tomcat\nEnvironment=\"JAVA_HOME=/usr/lib/jvm/java-17-amazon-corretto\"\nEnvironment=\"CATALINA_PID=/opt/tomcat/temp/tomcat.pid\"\nEnvironment=\"CATALINA_HOME=/opt/tomcat\"\nEnvironment=\"CATALINA_BASE=/opt/tomcat\"\nEnvironment=\"CATALINA_OPTS=-Xms512M -Xmx1024M\"\nEnvironment=\"JAVA_OPTS=-Djava.security.egd=file:/dev/./urandom\"\nExecStart=/opt/tomcat/bin/startup.sh\nExecStop=/opt/tomcat/bin/shutdown.sh\nRestart=on-failure\n\n[Install]\nWantedBy=multi-user.target\nSERVICE_EOF",
-
 
       "echo '========================================'",
+
+      "sudo tee /etc/systemd/system/tomcat.service > /dev/null <<'SERVICE_EOF'\n[Unit]\nDescription=Apache Tomcat\nAfter=network.target\n\n[Service]\nType=forking\nUser=tomcat\nGroup=tomcat\nEnvironment=\"JAVA_HOME=/usr/lib/jvm/java-17-amazon-corretto\"\nEnvironment=\"CATALINA_PID=/opt/tomcat/temp/tomcat.pid\"\nEnvironment=\"CATALINA_HOME=/opt/tomcat\"\nEnvironment=\"CATALINA_BASE=/opt/tomcat\"\nEnvironment=\"CATALINA_OPTS=-Xms512M -Xmx1024M\"\nEnvironment=\"JAVA_OPTS=-Djava.security.egd=file:/dev/./urandom\"\nExecStart=/opt/tomcat/bin/startup.sh\nExecStop=/opt/tomcat/bin/shutdown.sh\nRestart=on-failure\nRestartSec=10\n\n[Install]\nWantedBy=multi-user.target\nSERVICE_EOF",
+
+
+      "echo '========================================'",
+
       "echo 'Starting Tomcat'",
+
       "echo '========================================'",
 
       "sudo systemctl daemon-reload",
@@ -239,28 +291,29 @@ build {
 
       "sudo systemctl is-active --quiet tomcat",
 
-      "echo '========================================'",
-      "echo 'Tomcat is running successfully'",
-      "echo '========================================'"
+      "echo 'Tomcat is running successfully'"
+
     ]
+
   }
 
 
-  ##########################################
+  ############################################
   # Copy WAR from Jenkins Workspace
-  ##########################################
+  ############################################
 
   provisioner "file" {
 
     source = "${path.root}/../backend/target/Server-Inventory.war"
 
     destination = "/tmp/Server-Inventory.war"
+
   }
 
 
-  ##########################################
+  ############################################
   # Deploy WAR
-  ##########################################
+  ############################################
 
   provisioner "shell" {
 
@@ -269,7 +322,9 @@ build {
       "set -e",
 
       "echo '========================================'",
+
       "echo 'Deploying Server Inventory WAR'",
+
       "echo '========================================'",
 
       "sudo systemctl stop tomcat",
@@ -292,16 +347,16 @@ build {
 
       "sudo systemctl is-active --quiet tomcat",
 
-      "echo '========================================'",
-      "echo 'WAR deployment completed'",
-      "echo '========================================'"
+      "echo 'WAR deployment completed'"
+
     ]
+
   }
 
 
-  ##########################################
+  ############################################
   # Verify Application
-  ##########################################
+  ############################################
 
   provisioner "shell" {
 
@@ -310,7 +365,9 @@ build {
       "set -e",
 
       "echo '========================================'",
+
       "echo 'Testing Backend Application'",
+
       "echo '========================================'",
 
       "curl -f http://localhost:8080/server-inventory/actuator/health",
@@ -318,15 +375,110 @@ build {
       "echo ''",
 
       "echo '========================================'",
+
       "echo 'Backend application is healthy'",
+
       "echo '========================================'"
+
     ]
+
   }
 
 
-  ##########################################
+  ############################################
+  # Install CloudWatch Agent
+  ############################################
+
+  provisioner "shell" {
+
+    inline = [
+
+      "set -e",
+
+      "echo '========================================'",
+
+      "echo 'Installing Amazon CloudWatch Agent'",
+
+      "echo '========================================'",
+
+      "sudo dnf install -y wget",
+
+      "wget -q -O /tmp/amazon-cloudwatch-agent.rpm https://amazoncloudwatch-agent.s3.amazonaws.com/amazon_linux/amd64/latest/amazon-cloudwatch-agent.rpm",
+
+      "sudo rpm -U /tmp/amazon-cloudwatch-agent.rpm",
+
+      "rm -f /tmp/amazon-cloudwatch-agent.rpm",
+
+      "echo 'CloudWatch Agent installed successfully'"
+
+    ]
+
+  }
+
+
+  ############################################
+  # CloudWatch Agent Configuration
+  ############################################
+
+  provisioner "shell" {
+
+    inline = [
+
+      "set -e",
+
+      "echo '========================================'",
+
+      "echo 'Creating CloudWatch Agent Configuration'",
+
+      "echo '========================================'",
+
+      "sudo mkdir -p /opt/aws/amazon-cloudwatch-agent/etc",
+
+      "sudo tee /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json > /dev/null <<'CW_EOF'\n{\n  \"agent\": {\n    \"metrics_collection_interval\": 60,\n    \"run_as_user\": \"root\"\n  },\n  \"logs\": {\n    \"logs_collected\": {\n      \"files\": {\n        \"collect_list\": [\n          {\n            \"file_path\": \"/var/log/messages\",\n            \"log_group_name\": \"/server-inventory/system/messages\",\n            \"log_stream_name\": \"{instance_id}\",\n            \"retention_in_days\": 14\n          },\n          {\n            \"file_path\": \"/var/log/secure\",\n            \"log_group_name\": \"/server-inventory/system/secure\",\n            \"log_stream_name\": \"{instance_id}\",\n            \"retention_in_days\": 14\n          },\n          {\n            \"file_path\": \"/opt/tomcat/logs/catalina.out\",\n            \"log_group_name\": \"/server-inventory/application/tomcat\",\n            \"log_stream_name\": \"{instance_id}\",\n            \"retention_in_days\": 14\n          }\n        ]\n      }\n    }\n  },\n  \"metrics\": {\n    \"namespace\": \"ServerInventory/EC2\",\n    \"append_dimensions\": {\n      \"InstanceId\": \"${aws:InstanceId}\",\n      \"InstanceType\": \"${aws:InstanceType}\",\n      \"AutoScalingGroupName\": \"${aws:AutoScalingGroupName}\"\n    },\n    \"metrics_collected\": {\n      \"cpu\": {\n        \"measurement\": [\n          \"cpu_usage_idle\",\n          \"cpu_usage_user\",\n          \"cpu_usage_system\"\n        ],\n        \"metrics_collection_interval\": 60,\n        \"resources\": [\n          \"*\"\n        ],\n        \"totalcpu\": true\n      },\n      \"disk\": {\n        \"measurement\": [\n          \"used_percent\"\n        ],\n        \"metrics_collection_interval\": 60,\n        \"resources\": [\n          \"*\"\n        ]\n      },\n      \"diskio\": {\n        \"measurement\": [\n          \"read_bytes\",\n          \"write_bytes\"\n        ],\n        \"metrics_collection_interval\": 60,\n        \"resources\": [\n          \"*\"\n        ]\n      },\n      \"mem\": {\n        \"measurement\": [\n          \"mem_used_percent\"\n        ],\n        \"metrics_collection_interval\": 60\n      },\n      \"swap\": {\n        \"measurement\": [\n          \"swap_used_percent\"\n        ],\n        \"metrics_collection_interval\": 60\n      }\n    }\n  }\n}\nCW_EOF",
+
+      "sudo chown root:root /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json",
+
+      "sudo chmod 644 /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json",
+
+      "echo 'CloudWatch Agent configuration created'"
+
+    ]
+
+  }
+
+
+  ############################################
+  # Start CloudWatch Agent
+  ############################################
+
+  provisioner "shell" {
+
+    inline = [
+
+      "set -e",
+
+      "echo '========================================'",
+
+      "echo 'Starting CloudWatch Agent'",
+
+      "echo '========================================'",
+
+      "sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json -s",
+
+      "sudo systemctl enable amazon-cloudwatch-agent",
+
+      "sudo systemctl is-active --quiet amazon-cloudwatch-agent",
+
+      "echo 'CloudWatch Agent is running successfully'"
+
+    ]
+
+  }
+
+
+  ############################################
   # Cleanup
-  ##########################################
+  ############################################
 
   provisioner "shell" {
 
@@ -337,17 +489,22 @@ build {
       "sudo rm -f /tmp/apache-tomcat-10.1.57.tar.gz",
 
       "sudo dnf clean all"
+
     ]
+
   }
 
 
-  ##########################################
+  ############################################
   # Generate AMI Manifest
-  ##########################################
+  ############################################
 
   post-processor "manifest" {
 
-    output     = "packer-manifest.json"
+    output = "packer-manifest.json"
+
     strip_path = true
+
   }
+
 }
