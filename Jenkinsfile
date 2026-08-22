@@ -98,18 +98,7 @@ Now:
             }
         }
 
-
-        stage('Deploy Frontend to S3') {
-            steps {
-
-                sh '''
-                    aws s3 sync frontend/ s3://mybkt-575458732395-ap-south-1-an --delete
-                '''
-
-            }
-        }
-
-
+        
         ############################################
         # Packer
         ############################################
@@ -136,30 +125,16 @@ Now:
 
                         packer init .
 
-
-                        echo "======================================="
-                        echo "Validating Packer"
-                        echo "======================================="
-
                         packer validate \
                           -var-file=terraform.pkrvars.hcl \
                           -var "ssh_private_key_file=$PACKER_SSH_KEY" \
                           .
 
 
-                        echo "======================================="
-                        echo "Building Backend AMI"
-                        echo "======================================="
-
                         packer build \
                           -var-file=terraform.pkrvars.hcl \
                           -var "ssh_private_key_file=$PACKER_SSH_KEY" \
                           .
-
-
-                        echo "======================================="
-                        echo "Reading AMI ID"
-                        echo "======================================="
 
                         AMI_ID=$(jq -r '.builds[-1].artifact_id' packer-manifest.json | cut -d: -f2)
 
