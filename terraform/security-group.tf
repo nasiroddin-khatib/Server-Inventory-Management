@@ -467,7 +467,7 @@ resource "aws_security_group" "packer_sg" {
 
   name        = "${var.project}-packer-sg"
   description = "Security group for temporary Packer build instances"
-  vpc_id      = aws_vpc.main.id
+  vpc_id      = aws_vpc.vpc.id
 
   tags = {
     Name        = "${var.project}-packer-sg"
