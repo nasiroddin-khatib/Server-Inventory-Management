@@ -39,7 +39,7 @@ async function getServerById(id) {
 
     try {
 
-        const response = await fetch(`${BASE_URL}/$${id}`);
+        const response = await fetch(`$${BASE_URL}/$${id}`);
 
         if (!response.ok) {
             throw new Error(`Server not found: $${response.status}`);
@@ -101,7 +101,7 @@ async function updateServer(id, server) {
 
     try {
 
-        const response = await fetch(`${BASE_URL}/$${id}`, {
+        const response = await fetch(`$${BASE_URL}/$${id}`, {
 
             method: "PUT",
 
@@ -137,7 +137,7 @@ async function deleteServer(id) {
 
     try {
 
-        const response = await fetch(`${BASE_URL}/$${id}`, {
+        const response = await fetch(`$${BASE_URL}/$${id}`, {
 
             method: "DELETE"
 
