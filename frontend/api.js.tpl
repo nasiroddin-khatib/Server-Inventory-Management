@@ -1,12 +1,13 @@
-// ===============================
+// ==========================================================
 // Backend Base URL
-// ===============================
+// ==========================================================
 
 const BASE_URL = "http://${alb_dns_name}/server-inventory/api/servers";
 
-// ===============================
+
+// ==========================================================
 // GET ALL SERVERS
-// ===============================
+// ==========================================================
 
 async function getServers() {
 
@@ -15,25 +16,24 @@ async function getServers() {
         const response = await fetch(BASE_URL);
 
         if (!response.ok) {
-            throw new Error("Failed to fetch servers");
+            throw new Error(`Failed to fetch servers: ${response.status}`);
         }
 
         return await response.json();
 
     } catch (error) {
 
-        console.error("GET Error :", error);
+        console.error("GET servers error:", error);
 
         return [];
 
     }
-
 }
 
 
-// ===============================
+// ==========================================================
 // GET SERVER BY ID
-// ===============================
+// ==========================================================
 
 async function getServerById(id) {
 
@@ -42,23 +42,24 @@ async function getServerById(id) {
         const response = await fetch(`${BASE_URL}/${id}`);
 
         if (!response.ok) {
-            throw new Error("Server not found");
+            throw new Error(`Server not found: ${response.status}`);
         }
 
         return await response.json();
 
     } catch (error) {
 
-        console.error(error);
+        console.error("GET server by ID error:", error);
+
+        return null;
 
     }
-
 }
 
 
-// ===============================
+// ==========================================================
 // ADD SERVER
-// ===============================
+// ==========================================================
 
 async function addServer(server) {
 
@@ -77,23 +78,24 @@ async function addServer(server) {
         });
 
         if (!response.ok) {
-            throw new Error("Unable to add server");
+            throw new Error(`Unable to add server: ${response.status}`);
         }
 
         return await response.json();
 
     } catch (error) {
 
-        console.error(error);
+        console.error("POST server error:", error);
+
+        return null;
 
     }
-
 }
 
 
-// ===============================
+// ==========================================================
 // UPDATE SERVER
-// ===============================
+// ==========================================================
 
 async function updateServer(id, server) {
 
@@ -112,23 +114,24 @@ async function updateServer(id, server) {
         });
 
         if (!response.ok) {
-            throw new Error("Unable to update server");
+            throw new Error(`Unable to update server: ${response.status}`);
         }
 
         return await response.json();
 
     } catch (error) {
 
-        console.error(error);
+        console.error("PUT server error:", error);
+
+        return null;
 
     }
-
 }
 
 
-// ===============================
+// ==========================================================
 // DELETE SERVER
-// ===============================
+// ==========================================================
 
 async function deleteServer(id) {
 
@@ -141,17 +144,16 @@ async function deleteServer(id) {
         });
 
         if (!response.ok) {
-            throw new Error("Unable to delete server");
+            throw new Error(`Unable to delete server: ${response.status}`);
         }
 
         return true;
 
     } catch (error) {
 
-        console.error(error);
+        console.error("DELETE server error:", error);
 
         return false;
 
     }
-
 }
