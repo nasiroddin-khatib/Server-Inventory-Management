@@ -42,19 +42,11 @@ Now:
         stage('Build') {
             steps {
                 dir('backend') {
-                    sh 'mvn clean compile'
+                    sh 'mvn clean test'
                 }
             }
         }
 
-
-        stage('Test') {
-            steps {
-                dir('backend') {
-                    sh 'mvn test'
-                }
-            }
-        }
 
 
         stage('SonarQube Analysis') {
