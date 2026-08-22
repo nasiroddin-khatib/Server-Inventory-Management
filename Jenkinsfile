@@ -240,3 +240,13 @@ Now:
     }
 
 }
+
+
+
+post {
+    always {
+        sh '''
+            rm -f jenkins/settings.xml
+        '''
+    }
+}
