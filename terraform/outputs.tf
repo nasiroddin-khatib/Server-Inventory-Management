@@ -266,16 +266,7 @@ output "sonarqube_url" {
   value       = "http://${aws_instance.sonarqube.public_ip}:9000"
 }
 
-############################################
-# Packer Security Group ID
-############################################
 
-output "packer_security_group_id" {
-
-  description = "Security Group ID used by temporary Packer instances"
-
-  value = aws_security_group.packer_sg.id
-}
 
 ############################################
 # Monitoring Server
