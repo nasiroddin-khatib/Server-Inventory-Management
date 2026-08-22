@@ -125,7 +125,7 @@ monitoring_instance_type = "t3.small"
 
 monitoring_key_name = "mykey"
 
-monitoring_sg_name = "Server-Inventory-monitoring-sg"
+# monitoring_sg_name = "Server-Inventory-monitoring-sg"
 
 admin_ip = "152.57.155.252/32"
 
