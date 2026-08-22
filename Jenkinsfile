@@ -39,6 +39,35 @@ Now:
 
     }
 }
+        
+        
+        stage('Configure Nexus Credentials') {
+
+    steps {
+
+        sh '''
+            echo "Fetching Nexus credentials from AWS Secrets Manager..."
+
+            SECRET_JSON=$(aws secretsmanager get-secret-value \
+                --secret-id "${NEXUS_SECRET_NAME}" \
+                --query SecretString \
+                --output text)
+
+            NEXUS_USERNAME=$(echo "$SECRET_JSON" | jq -r '.username')
+            NEXUS_PASSWORD=$(echo "$SECRET_JSON" | jq -r '.password')
+
+            export NEXUS_USERNAME
+            export NEXUS_PASSWORD
+
+            envsubst < jenkins/settings.xml.tpl > jenkins/settings.xml
+
+            echo "Nexus settings.xml generated."
+        '''
+    }
+}
+        
+        
+        
         stage('Build') {
             steps {
                 dir('backend') {
