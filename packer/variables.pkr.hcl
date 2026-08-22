@@ -3,27 +3,27 @@
 ############################################
 
 variable "aws_region" {
-  description = "AWS region"
+  description = "AWS region where Packer builds the AMI"
   type        = string
 }
 
 
 ############################################
-# EC2 Instance Type
+# Packer Build Instance Type
 ############################################
 
 variable "instance_type" {
-  description = "Temporary Packer build instance type"
+  description = "Temporary EC2 instance type used by Packer"
   type        = string
 }
 
 
 ############################################
-# AWS Key Pair
+# Existing AWS Key Pair
 ############################################
 
 variable "key_name" {
-  description = "Existing EC2 key pair"
+  description = "Existing EC2 key pair used by Packer"
   type        = string
 }
 
@@ -33,7 +33,7 @@ variable "key_name" {
 ############################################
 
 variable "ssh_username" {
-  description = "SSH username for Amazon Linux"
+  description = "SSH username for Amazon Linux 2023"
   type        = string
 }
 
@@ -43,7 +43,17 @@ variable "ssh_username" {
 ############################################
 
 variable "ssh_private_key_file" {
-  description = "Temporary private key path supplied by Jenkins"
+  description = "Private SSH key supplied dynamically by Jenkins"
   type        = string
   sensitive   = true
+}
+
+
+############################################
+# Backend IAM Instance Profile
+############################################
+
+variable "backend_instance_profile_name" {
+  description = "IAM instance profile attached to the temporary Packer build instance"
+  type        = string
 }
