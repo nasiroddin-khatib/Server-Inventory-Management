@@ -16,7 +16,7 @@ async function getServers() {
         const response = await fetch(BASE_URL);
 
         if (!response.ok) {
-            throw new Error(`Failed to fetch servers: ${response.status}`);
+            throw new Error(`Failed to fetch servers: $${response.status}`);
         }
 
         return await response.json();
@@ -39,10 +39,10 @@ async function getServerById(id) {
 
     try {
 
-        const response = await fetch(`${BASE_URL}/${id}`);
+        const response = await fetch(`${BASE_URL}/$${id}`);
 
         if (!response.ok) {
-            throw new Error(`Server not found: ${response.status}`);
+            throw new Error(`Server not found: $${response.status}`);
         }
 
         return await response.json();
@@ -78,7 +78,7 @@ async function addServer(server) {
         });
 
         if (!response.ok) {
-            throw new Error(`Unable to add server: ${response.status}`);
+            throw new Error(`Unable to add server: $${response.status}`);
         }
 
         return await response.json();
@@ -101,7 +101,7 @@ async function updateServer(id, server) {
 
     try {
 
-        const response = await fetch(`${BASE_URL}/${id}`, {
+        const response = await fetch(`${BASE_URL}/$${id}`, {
 
             method: "PUT",
 
@@ -114,7 +114,7 @@ async function updateServer(id, server) {
         });
 
         if (!response.ok) {
-            throw new Error(`Unable to update server: ${response.status}`);
+            throw new Error(`Unable to update server: $${response.status}`);
         }
 
         return await response.json();
@@ -137,14 +137,14 @@ async function deleteServer(id) {
 
     try {
 
-        const response = await fetch(`${BASE_URL}/${id}`, {
+        const response = await fetch(`${BASE_URL}/$${id}`, {
 
             method: "DELETE"
 
         });
 
         if (!response.ok) {
-            throw new Error(`Unable to delete server: ${response.status}`);
+            throw new Error(`Unable to delete server: $${response.status}`);
         }
 
         return true;
