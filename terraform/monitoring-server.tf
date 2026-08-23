@@ -33,18 +33,6 @@ data "aws_ami" "ubuntu" {
 # Public Subnet
 ############################################
 
-data "aws_subnet" "monitoring_subnet" {
-
-  filter {
-
-    name = "tag:Name"
-
-    values = ["public-subnet-1"]
-
-  }
-
-}
-
 
 ############################################
 # Monitoring Server
@@ -56,7 +44,7 @@ resource "aws_instance" "monitoring" {
 
   instance_type = var.monitoring_instance_type
 
-  subnet_id = data.aws_subnet.monitoring_subnet.id
+  subnet_id = aws_subnet.public_subnet_1.id
 
   key_name = var.monitoring_key_name
 
