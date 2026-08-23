@@ -25,7 +25,7 @@ resource "aws_autoscaling_group" "backend" {
   health_check_grace_period = 300
 
   launch_template {
-    id      = aws_launch_template.backend.id
+    id      = aws_launch_template.backend[count.index].id
     version = "$Latest"
   }
 
