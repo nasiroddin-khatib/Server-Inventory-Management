@@ -51,7 +51,7 @@ resource "aws_s3_object" "frontend_api_js" {
 
   content_type = "application/javascript"
 
-  etag = filemd5(local_file.frontend_api_js.filename)
+  etag = md5(local_file.frontend_api_js.content)
 
   depends_on = [
     local_file.frontend_api_js
