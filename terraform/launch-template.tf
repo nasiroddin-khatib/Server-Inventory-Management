@@ -61,8 +61,8 @@ resource "aws_launch_template" "backend" {
     http_put_response_hop_limit = 2
   }
 
- 
-    
+
+
 
   ############################################
   # Instance Tags
@@ -77,7 +77,7 @@ resource "aws_launch_template" "backend" {
       Project     = var.project
       Environment = var.environment
       ManagedBy   = "Terraform"
-Role = "backend"
+      Role        = "backend"
     }
   }
 

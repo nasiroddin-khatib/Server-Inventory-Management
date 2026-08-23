@@ -50,19 +50,19 @@ resource "aws_autoscaling_group" "backend" {
   ]
 
   enabled_metrics = [
-  "GroupDesiredCapacity",
-  "GroupInServiceInstances",
-  "GroupTotalInstances",
-  "GroupMinSize",
-  "GroupMaxSize",
-  "GroupPendingInstances",
-  "GroupStandbyInstances",
-  "GroupTerminatingInstances",
-  "GroupTotalCapacity",
-  "GroupInServiceCapacity",
-  "GroupPendingCapacity",
-  "GroupTerminatingCapacity"
-]
+    "GroupDesiredCapacity",
+    "GroupInServiceInstances",
+    "GroupTotalInstances",
+    "GroupMinSize",
+    "GroupMaxSize",
+    "GroupPendingInstances",
+    "GroupStandbyInstances",
+    "GroupTerminatingInstances",
+    "GroupTotalCapacity",
+    "GroupInServiceCapacity",
+    "GroupPendingCapacity",
+    "GroupTerminatingCapacity"
+  ]
 
   tag {
     key                 = "Name"

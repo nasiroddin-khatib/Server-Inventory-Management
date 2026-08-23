@@ -345,14 +345,14 @@ echo "==============================="
 EOT
 
 
-# ============================================================
-# Tags
-# ============================================================
+  # ============================================================
+  # Tags
+  # ============================================================
 
-tags = {
-  Name        = "Server-Inventory-Sonarqube"
-  Project     = "Server-Inventory"
-  Environment = "Production"
-  ManagedBy   = "Terraform"
-}
+  tags = {
+    Name        = "Server-Inventory-Sonarqube"
+    Project     = "Server-Inventory"
+    Environment = "Production"
+    ManagedBy   = "Terraform"
+  }
 }
