@@ -4,9 +4,9 @@ pipeline {
 
     stages {
 
-        // ============================================
+        // ============================================================
         // Checkout
-        // ============================================
+        // ============================================================
 
         stage('Checkout') {
 
@@ -18,9 +18,112 @@ pipeline {
         }
 
 
-        // ============================================
+        // ============================================================
+        // Terraform Format + Validate
+        // ============================================================
+
+        stage('Terraform Format and Validate') {
+
+            steps {
+
+                dir('terraform') {
+
+                    sh '''
+                        set -e
+
+                        echo "======================================="
+                        echo "Terraform Format"
+                        echo "======================================="
+
+                        terraform fmt -recursive
+
+
+                        echo "======================================="
+                        echo "Terraform Init"
+                        echo "======================================="
+
+                        terraform init
+
+
+                        echo "======================================="
+                        echo "Terraform Validate"
+                        echo "======================================="
+
+                        terraform validate
+
+
+                        echo "======================================="
+                        echo "Terraform Format and Validation Completed"
+                        echo "======================================="
+                    '''
+                }
+            }
+        }
+
+
+        // ============================================================
+        // Stage 1 - Create Base Infrastructure
+        // ============================================================
+
+        stage('Terraform - Base Infrastructure') {
+
+            steps {
+
+                dir('terraform') {
+
+                    sh '''
+                        set -e
+
+                        echo "======================================="
+                        echo "Creating Base Infrastructure"
+                        echo "======================================="
+
+
+                        terraform apply \
+                          -target=aws_vpc.vpc \
+                          -target=aws_internet_gateway.igw \
+                          -target=aws_subnet.public_subnet_1 \
+                          -target=aws_subnet.public_subnet_2 \
+                          -target=aws_subnet.private_subnet_1 \
+                          -target=aws_subnet.private_subnet_2 \
+                          -target=aws_eip.nat_eip \
+                          -target=aws_nat_gateway.nat_gateway \
+                          -target=aws_route_table.public_route_table \
+                          -target=aws_route_table.private_route_table \
+                          -target=aws_route_table_association.public_subnet_1 \
+                          -target=aws_route_table_association.public_subnet_2 \
+                          -target=aws_route_table_association.private_subnet_1 \
+                          -target=aws_route_table_association.private_subnet_2 \
+                          -target=aws_security_group.packer_sg \
+                          -target=aws_iam_role.backend_role \
+                          -target=aws_iam_role_policy_attachment.backend_ssm \
+                          -target=aws_iam_role_policy_attachment.backend_cloudwatch \
+                          -target=aws_iam_instance_profile.backend_instance_profile \
+                          -target=aws_s3_bucket.frontend \
+                          -target=aws_secretsmanager_secret.nexus_credentials \
+                          -target=aws_iam_role.jenkins_role \
+                          -target=aws_iam_role_policy_attachment.jenkins_ssm \
+                          -target=aws_iam_instance_profile.jenkins_profile \
+                          -target=aws_instance.jenkins \
+                          -target=aws_iam_role.nexus_role \
+                          -target=aws_iam_role_policy_attachment.nexus_ssm \
+                          -target=aws_iam_instance_profile.nexus_profile \
+                          -target=aws_instance.nexus \
+                          -auto-approve
+
+
+                        echo "======================================="
+                        echo "Base Infrastructure Created"
+                        echo "======================================="
+                    '''
+                }
+            }
+        }
+
+
+        // ============================================================
         // Wait for Nexus Credentials
-        // ============================================
+        // ============================================================
 
         stage('Enter Nexus Credentials') {
 
@@ -51,9 +154,9 @@ Now:
         }
 
 
-        // ============================================
+        // ============================================================
         // Configure Nexus Credentials
-        // ============================================
+        // ============================================================
 
         stage('Configure Nexus Credentials') {
 
@@ -62,48 +165,77 @@ Now:
                 sh '''
                     set -e
 
-                    echo "Fetching Nexus credentials from AWS Secrets Manager..."
+                    echo "======================================="
+                    echo "Fetching Nexus Credentials"
+                    echo "======================================="
+
 
                     SECRET_JSON=$(aws secretsmanager get-secret-value \
                         --secret-id "server-inventory/nexus-credentials" \
                         --query SecretString \
                         --output text)
 
+
                     NEXUS_USERNAME=$(echo "$SECRET_JSON" | jq -r '.username')
                     NEXUS_PASSWORD=$(echo "$SECRET_JSON" | jq -r '.password')
 
-                    export NEXUS_USERNAME
-                    export NEXUS_PASSWORD
+
+                    if [ -z "$NEXUS_USERNAME" ] || [ "$NEXUS_USERNAME" = "null" ]; then
+                        echo "ERROR: Nexus username was not found in Secrets Manager."
+                        exit 1
+                    fi
+
+
+                    if [ -z "$NEXUS_PASSWORD" ] || [ "$NEXUS_PASSWORD" = "null" ]; then
+                        echo "ERROR: Nexus password was not found in Secrets Manager."
+                        exit 1
+                    fi
+
 
                     echo "Generating Maven settings.xml..."
 
+
+                    export nexus_username="$NEXUS_USERNAME"
+                    export nexus_password="$NEXUS_PASSWORD"
+
+
                     envsubst < jenkins/settings.xml.tpl > jenkins/settings.xml
+
 
                     chmod 600 jenkins/settings.xml
 
+
                     echo "Creating Maven configuration directory if required..."
+
 
                     mkdir -p "$HOME/.m2"
 
-                    echo "Copying generated settings.xml to Maven configuration directory..."
+
+                    echo "Copying settings.xml to Maven configuration directory..."
+
 
                     cp jenkins/settings.xml "$HOME/.m2/settings.xml"
 
+
                     chmod 600 "$HOME/.m2/settings.xml"
+
+
+                    echo "Maven settings.xml configured successfully."
+
 
                     unset SECRET_JSON
                     unset NEXUS_USERNAME
                     unset NEXUS_PASSWORD
-
-                    echo "Nexus Maven configuration completed successfully."
+                    unset nexus_username
+                    unset nexus_password
                 '''
             }
         }
 
 
-        // ============================================
+        // ============================================================
         // Build
-        // ============================================
+        // ============================================================
 
         stage('Build') {
 
@@ -117,9 +249,9 @@ Now:
         }
 
 
-        // ============================================
+        // ============================================================
         // SonarQube Analysis
-        // ============================================
+        // ============================================================
 
         stage('SonarQube Analysis') {
 
@@ -136,9 +268,9 @@ Now:
         }
 
 
-        // ============================================
+        // ============================================================
         // Quality Gate
-        // ============================================
+        // ============================================================
 
         stage('Quality Gate') {
 
@@ -152,9 +284,9 @@ Now:
         }
 
 
-        // ============================================
+        // ============================================================
         // Package
-        // ============================================
+        // ============================================================
 
         stage('Package') {
 
@@ -168,9 +300,9 @@ Now:
         }
 
 
-        // ============================================
-        // Deploy to Nexus
-        // ============================================
+        // ============================================================
+        // Deploy Artifact to Nexus
+        // ============================================================
 
         stage('Deploy to Nexus') {
 
@@ -184,9 +316,9 @@ Now:
         }
 
 
-        // ============================================
-        // Packer
-        // ============================================
+        // ============================================================
+        // Stage 2 - Build Backend AMI using Packer
+        // ============================================================
 
         stage('Build Backend AMI') {
 
@@ -208,74 +340,151 @@ Now:
 
                         cd packer
 
+
                         packer init .
+
+
+                        echo "======================================="
+                        echo "Validating Packer Configuration"
+                        echo "======================================="
+
 
                         packer validate \
                           -var-file=terraform.pkrvars.hcl \
                           -var "ssh_private_key_file=$PACKER_SSH_KEY" \
                           .
 
+
+                        echo "======================================="
+                        echo "Building Backend AMI"
+                        echo "======================================="
+
+
                         packer build \
                           -var-file=terraform.pkrvars.hcl \
                           -var "ssh_private_key_file=$PACKER_SSH_KEY" \
                           .
 
+
+                        echo "======================================="
+                        echo "Extracting AMI ID"
+                        echo "======================================="
+
+
                         AMI_ID=$(jq -r '.builds[-1].artifact_id' packer-manifest.json | cut -d: -f2)
+
+
+                        if [ -z "$AMI_ID" ] || [ "$AMI_ID" = "null" ]; then
+                            echo "ERROR: AMI ID could not be extracted."
+                            exit 1
+                        fi
+
 
                         echo "Created AMI: $AMI_ID"
 
+
                         echo "$AMI_ID" > ../backend-ami-id.txt
+
+
+                        echo "AMI ID saved to backend-ami-id.txt"
                     '''
                 }
             }
         }
 
 
-        // ============================================
-        // Terraform
-        // ============================================
+        // ============================================================
+        // Stage 3 - Complete Remaining Infrastructure
+        // ============================================================
 
-        stage('Update Infrastructure') {
+        stage('Terraform - Update Infrastructure') {
 
             steps {
 
-                sh '''
-                    set -e
+                dir('terraform') {
 
-                    AMI_ID=$(cat backend-ami-id.txt)
+                    sh '''
+                        set -e
 
-                    echo "======================================="
-                    echo "Using Backend AMI"
-                    echo "$AMI_ID"
-                    echo "======================================="
 
-                    cd terraform
+                        AMI_ID=$(cat ../backend-ami-id.txt)
 
-                    terraform init
 
-                    terraform apply \
-                      -auto-approve \
-                      -var="backend_ami_id=$AMI_ID"
-                '''
+                        if [ -z "$AMI_ID" ]; then
+                            echo "ERROR: Backend AMI ID is empty."
+                            exit 1
+                        fi
+
+
+                        echo "======================================="
+                        echo "Backend AMI"
+                        echo "$AMI_ID"
+                        echo "======================================="
+
+
+                        echo "======================================="
+                        echo "Terraform Init"
+                        echo "======================================="
+
+
+                        terraform init
+
+
+                        echo "======================================="
+                        echo "Terraform Validate"
+                        echo "======================================="
+
+
+                        terraform validate
+
+
+                        echo "======================================="
+                        echo "Terraform Plan"
+                        echo "======================================="
+
+
+                        terraform plan \
+                          -var="backend_ami_id=$AMI_ID"
+
+
+                        echo "======================================="
+                        echo "Creating/Updating Remaining Infrastructure"
+                        echo "======================================="
+
+
+                        terraform apply \
+                          -var="backend_ami_id=$AMI_ID" \
+                          -auto-approve
+
+
+                        echo "======================================="
+                        echo "Terraform Apply Completed"
+                        echo "======================================="
+                    '''
+                }
             }
         }
 
     }
 
 
-    // ============================================
+    // ============================================================
     // Post Actions
-    // ============================================
+    // ============================================================
 
     post {
 
         always {
 
             sh '''
-                echo "Cleaning temporary Nexus credentials..."
+                echo "======================================="
+                echo "Cleaning Temporary Nexus Credentials"
+                echo "======================================="
+
 
                 rm -f jenkins/settings.xml
                 rm -f "$HOME/.m2/settings.xml"
+
 
                 echo "Temporary Nexus credential files removed."
             '''
@@ -289,12 +498,31 @@ Now:
 Pipeline executed successfully.
 =======================================
 
-Backend AMI created by Packer.
+Stage 1:
+Base AWS infrastructure created.
+
+Nexus:
+Credentials retrieved securely from
+AWS Secrets Manager.
+
+Maven:
+Application built, tested and deployed
+to Nexus.
+
+Stage 2:
+Packer created the backend AMI.
+
+Stage 3:
+Terraform created/updated the remaining
+infrastructure using the new backend AMI.
+
+Backend:
 Launch Template updated.
 ASG will launch backend instances
 using the new AMI.
-Frontend deployed to S3.
-Nexus artifact deployment completed.
+
+Frontend:
+Frontend infrastructure/files deployed.
 
 =======================================
 '''
@@ -306,7 +534,11 @@ Nexus artifact deployment completed.
             echo '''
 =======================================
 Pipeline Failed.
-Please check Jenkins Console Output.
+=======================================
+
+Please check the Jenkins Console Output
+for the failed stage and error.
+
 =======================================
 '''
         }
