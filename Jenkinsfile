@@ -4,10 +4,6 @@ pipeline {
 
     stages {
 
-        // ============================================================
-        // Checkout
-        // ============================================================
-
         stage('Checkout') {
 
             steps {
@@ -18,123 +14,12 @@ pipeline {
         }
 
 
-        // ============================================================
-        // Terraform Format + Validate
-        // ============================================================
-
-        stage('Terraform Format and Validate') {
-
-            steps {
-
-                dir('terraform') {
-
-                    sh '''
-                        set -e
-
-                        echo "======================================="
-                        echo "Terraform Format"
-                        echo "======================================="
-
-                        terraform fmt -recursive
-
-
-                        echo "======================================="
-                        echo "Terraform Init"
-                        echo "======================================="
-
-                        terraform init
-
-
-                        echo "======================================="
-                        echo "Terraform Validate"
-                        echo "======================================="
-
-                        terraform validate
-
-
-                        echo "======================================="
-                        echo "Terraform Format and Validation Completed"
-                        echo "======================================="
-                    '''
-                }
-            }
-        }
-
-
-        // ============================================================
-        // Stage 1 - Create Base Infrastructure
-        // ============================================================
-
-        stage('Terraform - Base Infrastructure') {
-
-            steps {
-
-                dir('terraform') {
-
-                    sh '''
-                        set -e
-
-                        echo "======================================="
-                        echo "Creating Base Infrastructure"
-                        echo "======================================="
-
-
-                        terraform apply \
-                          -target=aws_vpc.vpc \
-                          -target=aws_internet_gateway.igw \
-                          -target=aws_subnet.public_subnet_1 \
-                          -target=aws_subnet.public_subnet_2 \
-                          -target=aws_subnet.private_subnet_1 \
-                          -target=aws_subnet.private_subnet_2 \
-                          -target=aws_eip.nat_eip \
-                          -target=aws_nat_gateway.nat_gateway \
-                          -target=aws_route_table.public_route_table \
-                          -target=aws_route_table.private_route_table \
-                          -target=aws_route_table_association.public_subnet_1 \
-                          -target=aws_route_table_association.public_subnet_2 \
-                          -target=aws_route_table_association.private_subnet_1 \
-                          -target=aws_route_table_association.private_subnet_2 \
-                          -target=aws_security_group.packer_sg \
-                          -target=aws_iam_role.backend_role \
-                          -target=aws_iam_role_policy_attachment.backend_ssm \
-                          -target=aws_iam_role_policy_attachment.backend_cloudwatch \
-                          -target=aws_iam_instance_profile.backend_instance_profile \
-                          -target=aws_s3_bucket.frontend \
-                          -target=aws_secretsmanager_secret.nexus_credentials \
-                          -target=aws_iam_role.jenkins_role \
-                          -target=aws_iam_role_policy_attachment.jenkins_ssm \
-                          -target=aws_iam_instance_profile.jenkins_profile \
-                          -target=aws_instance.jenkins \
-                          -target=aws_iam_role.nexus_role \
-                          -target=aws_iam_role_policy_attachment.nexus_ssm \
-                          -target=aws_iam_instance_profile.nexus_profile \
-                          -target=aws_instance.nexus \
-                          -target=local_file.backend_pom \
-                          -auto-approve
-
-
-                        echo "======================================="
-                        echo "Base Infrastructure Created"
-                        echo "======================================="
-                    '''
-                }
-            }
-        }
-
-
-        // ============================================================
-        // Wait for Nexus Credentials
-        // ============================================================
-
         stage('Enter Nexus Credentials') {
 
             steps {
 
                 input(
                     message: '''
-========================================
-Nexus Credentials Required
-========================================
 
 Terraform has created the Nexus Secrets Manager secret.
 
@@ -155,10 +40,7 @@ Now:
         }
 
 
-        // ============================================================
-        // Configure Nexus Credentials
-        // ============================================================
-
+        
         stage('Configure Nexus Credentials') {
 
             steps {
@@ -175,6 +57,12 @@ Now:
                         --secret-id "server-inventory/nexus-credentials" \
                         --query SecretString \
                         --output text)
+
+
+                    if [ -z "$SECRET_JSON" ] || [ "$SECRET_JSON" = "None" ]; then
+                        echo "ERROR: Could not retrieve Nexus secret."
+                        exit 1
+                    fi
 
 
                     NEXUS_USERNAME=$(echo "$SECRET_JSON" | jq -r '.username')
@@ -234,10 +122,6 @@ Now:
         }
 
 
-        // ============================================================
-        // Build
-        // ============================================================
-
         stage('Build') {
 
             steps {
@@ -249,10 +133,6 @@ Now:
             }
         }
 
-
-        // ============================================================
-        // SonarQube Analysis
-        // ============================================================
 
         stage('SonarQube Analysis') {
 
@@ -269,10 +149,6 @@ Now:
         }
 
 
-        // ============================================================
-        // Quality Gate
-        // ============================================================
-
         stage('Quality Gate') {
 
             steps {
@@ -284,10 +160,6 @@ Now:
             }
         }
 
-
-        // ============================================================
-        // Package
-        // ============================================================
 
         stage('Package') {
 
@@ -301,10 +173,7 @@ Now:
         }
 
 
-        // ============================================================
-        // Deploy Artifact to Nexus
-        // ============================================================
-
+      
         stage('Deploy to Nexus') {
 
             steps {
@@ -445,7 +314,8 @@ Now:
 
 
                         terraform plan \
-                          -var="backend_ami_id=$AMI_ID"
+                          -var="backend_ami_id=$AMI_ID" \
+                          -out=tfplan
 
 
                         echo "======================================="
@@ -454,8 +324,8 @@ Now:
 
 
                         terraform apply \
-                          -var="backend_ami_id=$AMI_ID" \
-                          -auto-approve
+                          -auto-approve \
+                          tfplan
 
 
                         echo "======================================="
@@ -485,6 +355,7 @@ Now:
 
                 rm -f jenkins/settings.xml
                 rm -f "$HOME/.m2/settings.xml"
+                rm -f terraform/tfplan
 
 
                 echo "Temporary Nexus credential files removed."
@@ -499,33 +370,7 @@ Now:
 Pipeline executed successfully.
 =======================================
 
-Stage 1:
-Base AWS infrastructure created.
 
-Nexus:
-Credentials retrieved securely from
-AWS Secrets Manager.
-
-Maven:
-Application built, tested and deployed
-to Nexus.
-
-Stage 2:
-Packer created the backend AMI.
-
-Stage 3:
-Terraform created/updated the remaining
-infrastructure using the new backend AMI.
-
-Backend:
-Launch Template updated.
-ASG will launch backend instances
-using the new AMI.
-
-Frontend:
-Frontend infrastructure/files deployed.
-
-=======================================
 '''
         }
 
@@ -537,10 +382,6 @@ Frontend infrastructure/files deployed.
 Pipeline Failed.
 =======================================
 
-Please check the Jenkins Console Output
-for the failed stage and error.
-
-=======================================
 '''
         }
     }
