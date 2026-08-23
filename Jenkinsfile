@@ -109,6 +109,7 @@ pipeline {
                           -target=aws_iam_role_policy_attachment.nexus_ssm \
                           -target=aws_iam_instance_profile.nexus_profile \
                           -target=aws_instance.nexus \
+                          -target=local_file.backend_pom \
                           -auto-approve
 
 
