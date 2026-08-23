@@ -5,194 +5,171 @@ pipeline {
     stages {
 
         stage('Checkout') {
-
             steps {
-
                 git branch: 'master',
                     url: 'https://github.com/nasiroddin-khatib/Server-Inventory-Management.git'
             }
         }
 
-
         stage('Terraform Format and Validate') {
-
             steps {
-
                 dir('terraform') {
-
                     sh '''
                         set -e
 
-                        echo "======================================="
-                        echo "Terraform Format"
-                        echo "======================================="
-
                         terraform fmt -recursive
-
-
-                        echo "======================================="
-                        echo "Terraform Init"
-                        echo "======================================="
-
                         terraform init
-
-
-                        echo "======================================="
-                        echo "Terraform Validate"
-                        echo "======================================="
-
                         terraform validate
-
-
-                        echo "======================================="
-                        echo "Terraform Format and Validation Completed"
-                        echo "======================================="
                     '''
                 }
             }
         }
 
+        stage('Build and Test') {
+            steps {
+                dir('backend') {
+                    sh 'mvn clean test'
+                }
+            }
+        }
 
-        // ============================================================
-        // Stage 1 - Create Base Infrastructure
-        // ============================================================
+        stage('SonarQube Analysis') {
+            steps {
+                dir('backend') {
+                    withSonarQubeEnv('sonarqube-server') {
+                        sh 'mvn sonar:sonar'
+                    }
+                }
+            }
+        }
+
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
 
         stage('Terraform - Base Infrastructure') {
-
             steps {
-
                 dir('terraform') {
-
                     sh '''
                         set -e
 
-                        echo "======================================="
-                        echo "Creating Base Infrastructure"
-                        echo "======================================="
-
-
                         terraform apply \
+                         
                           -target=aws_security_group.packer_sg \
                           -target=aws_iam_role.backend_role \
                           -target=aws_iam_role_policy_attachment.backend_ssm \
                           -target=aws_iam_role_policy_attachment.backend_cloudwatch \
                           -target=aws_iam_instance_profile.backend_instance_profile \
                           -target=aws_s3_bucket.frontend \
-                          -target=aws_secretsmanager_secret.nexus_credentials \
+                          -target=aws_secretsmanager_secret.nexus_credentials \                          
+                          -target=aws_iam_role_policy_attachment.jenkins_ssm \                       
                           -target=aws_iam_role.nexus_role \
                           -target=aws_iam_role_policy_attachment.nexus_ssm \
                           -target=aws_iam_instance_profile.nexus_profile \
                           -target=aws_instance.nexus \
                           -target=local_file.backend_pom \
                           -auto-approve
-
-
-                        echo "======================================="
-                        echo "Base Infrastructure Created"
-                        echo "======================================="
                     '''
                 }
             }
         }
 
-
-        stage('Enter Nexus Credentials') {
-
+        stage('Configure Nexus Repository') {
             steps {
-
                 input(
                     message: '''
+========================================
+Nexus Repository Configuration Required
+========================================
 
-Terraform has created the Nexus Secrets Manager secret.
+Terraform has created the Nexus server.
 
 Now:
 
-1. Open AWS Secrets Manager
-2. Open: server-inventory/nexus-credentials
-3. Store the Nexus username and password
-4. Save the secret
-5. Come back here
-6. Click "Proceed"
+1. Open the Nexus Repository Manager UI.
+2. Wait until Nexus is fully started.
+3. Log in to Nexus.
+4. Create the hosted Maven repository required
+   by this project.
+5. Verify that the repository is available.
+6. Return to Jenkins.
+7. Click "Proceed".
 
 ========================================
 ''',
-                    ok: 'Credentials Stored - Continue Pipeline'
+                    ok: 'Nexus Repository Created - Continue'
                 )
             }
         }
 
-
-        
-        stage('Configure Nexus Credentials') {
-
+        stage('Enter Nexus Credentials') {
             steps {
+                input(
+                    message: '''
+========================================
+Nexus Credentials Required
+========================================
 
+Open AWS Secrets Manager and:
+
+1. Open: server-inventory/nexus-credentials
+2. Store the Nexus username.
+3. Store the Nexus password.
+4. Save the secret.
+5. Return to Jenkins.
+6. Click "Proceed".
+
+========================================
+''',
+                    ok: 'Credentials Stored - Continue'
+                )
+            }
+        }
+
+        stage('Configure Nexus Credentials') {
+            steps {
                 sh '''
                     set -e
-
-                    echo "======================================="
-                    echo "Fetching Nexus Credentials"
-                    echo "======================================="
-
 
                     SECRET_JSON=$(aws secretsmanager get-secret-value \
                         --secret-id "server-inventory/nexus-credentials" \
                         --query SecretString \
                         --output text)
 
-
                     if [ -z "$SECRET_JSON" ] || [ "$SECRET_JSON" = "None" ]; then
-                        echo "ERROR: Could not retrieve Nexus secret."
+                        echo "Nexus secret is empty or does not exist."
                         exit 1
                     fi
-
 
                     NEXUS_USERNAME=$(echo "$SECRET_JSON" | jq -r '.username')
                     NEXUS_PASSWORD=$(echo "$SECRET_JSON" | jq -r '.password')
 
-
                     if [ -z "$NEXUS_USERNAME" ] || [ "$NEXUS_USERNAME" = "null" ]; then
-                        echo "ERROR: Nexus username was not found in Secrets Manager."
+                        echo "Nexus username is missing."
                         exit 1
                     fi
-
 
                     if [ -z "$NEXUS_PASSWORD" ] || [ "$NEXUS_PASSWORD" = "null" ]; then
-                        echo "ERROR: Nexus password was not found in Secrets Manager."
+                        echo "Nexus password is missing."
                         exit 1
                     fi
-
-
-                    echo "Generating Maven settings.xml..."
-
 
                     export nexus_username="$NEXUS_USERNAME"
                     export nexus_password="$NEXUS_PASSWORD"
 
-
                     envsubst < jenkins/settings.xml.tpl > jenkins/settings.xml
-
 
                     chmod 600 jenkins/settings.xml
 
-
-                    echo "Creating Maven configuration directory if required..."
-
-
                     mkdir -p "$HOME/.m2"
-
-
-                    echo "Copying settings.xml to Maven configuration directory..."
-
 
                     cp jenkins/settings.xml "$HOME/.m2/settings.xml"
 
-
                     chmod 600 "$HOME/.m2/settings.xml"
-
-
-                    echo "Maven settings.xml configured successfully."
-
 
                     unset SECRET_JSON
                     unset NEXUS_USERNAME
@@ -203,268 +180,105 @@ Now:
             }
         }
 
-
-        stage('Build') {
-
-            steps {
-
-                dir('backend') {
-
-                    sh 'mvn clean test'
-                }
-            }
-        }
-
-
-        stage('SonarQube Analysis') {
-
-            steps {
-
-                dir('backend') {
-
-                    withSonarQubeEnv('sonarqube-server') {
-
-                        sh 'mvn sonar:sonar'
-                    }
-                }
-            }
-        }
-
-
-        stage('Quality Gate') {
-
-            steps {
-
-                timeout(time: 5, unit: 'MINUTES') {
-
-                    waitForQualityGate abortPipeline: true
-                }
-            }
-        }
-
-
         stage('Package') {
-
             steps {
-
                 dir('backend') {
-
                     sh 'mvn package'
                 }
             }
         }
 
-
-      
         stage('Deploy to Nexus') {
-
             steps {
-
                 dir('backend') {
-
                     sh 'mvn deploy'
                 }
             }
         }
 
-
-        // ============================================================
-        // Stage 2 - Build Backend AMI using Packer
-        // ============================================================
-
         stage('Build Backend AMI') {
-
             steps {
-
                 withCredentials([
                     file(
                         credentialsId: 'packer-ssh-key',
                         variable: 'PACKER_SSH_KEY'
                     )
                 ]) {
-
                     sh '''
                         set -e
 
-                        echo "======================================="
-                        echo "Initializing Packer"
-                        echo "======================================="
-
                         cd packer
 
-
                         packer init .
-
-
-                        echo "======================================="
-                        echo "Validating Packer Configuration"
-                        echo "======================================="
-
 
                         packer validate \
                           -var-file=terraform.pkrvars.hcl \
                           -var "ssh_private_key_file=$PACKER_SSH_KEY" \
                           .
 
-
-                        echo "======================================="
-                        echo "Building Backend AMI"
-                        echo "======================================="
-
-
                         packer build \
                           -var-file=terraform.pkrvars.hcl \
                           -var "ssh_private_key_file=$PACKER_SSH_KEY" \
                           .
 
-
-                        echo "======================================="
-                        echo "Extracting AMI ID"
-                        echo "======================================="
-
-
                         AMI_ID=$(jq -r '.builds[-1].artifact_id' packer-manifest.json | cut -d: -f2)
 
-
                         if [ -z "$AMI_ID" ] || [ "$AMI_ID" = "null" ]; then
-                            echo "ERROR: AMI ID could not be extracted."
+                            echo "Failed to obtain AMI ID."
                             exit 1
                         fi
 
-
-                        echo "Created AMI: $AMI_ID"
-
-
                         echo "$AMI_ID" > ../backend-ami-id.txt
-
-
-                        echo "AMI ID saved to backend-ami-id.txt"
                     '''
                 }
             }
         }
 
-
-        // ============================================================
-        // Stage 3 - Complete Remaining Infrastructure
-        // ============================================================
-
         stage('Terraform - Update Infrastructure') {
-
             steps {
-
                 dir('terraform') {
-
                     sh '''
                         set -e
 
-
                         AMI_ID=$(cat ../backend-ami-id.txt)
 
-
                         if [ -z "$AMI_ID" ]; then
-                            echo "ERROR: Backend AMI ID is empty."
+                            echo "Backend AMI ID is empty."
                             exit 1
                         fi
 
-
-                        echo "======================================="
-                        echo "Backend AMI"
-                        echo "$AMI_ID"
-                        echo "======================================="
-
-
-                        echo "======================================="
-                        echo "Terraform Init"
-                        echo "======================================="
-
-
                         terraform init
-
-
-                        echo "======================================="
-                        echo "Terraform Validate"
-                        echo "======================================="
-
-
                         terraform validate
-
-
-                        echo "======================================="
-                        echo "Terraform Plan"
-                        echo "======================================="
-
 
                         terraform plan \
                           -var="backend_ami_id=$AMI_ID" \
                           -out=tfplan
 
-
-                        echo "======================================="
-                        echo "Creating/Updating Remaining Infrastructure"
-                        echo "======================================="
-
-
                         terraform apply \
                           -auto-approve \
                           tfplan
-
-
-                        echo "======================================="
-                        echo "Terraform Apply Completed"
-                        echo "======================================="
                     '''
                 }
             }
         }
-
     }
-
-
-    // ============================================================
-    // Post Actions
-    // ============================================================
 
     post {
 
         always {
-
             sh '''
-                echo "======================================="
-                echo "Cleaning Temporary Nexus Credentials"
-                echo "======================================="
-
-
                 rm -f jenkins/settings.xml
                 rm -f "$HOME/.m2/settings.xml"
                 rm -f terraform/tfplan
-
-
-                echo "Temporary Nexus credential files removed."
             '''
         }
 
-
         success {
-
-            echo '''
-=======================================
-Pipeline executed successfully.
-=======================================
-
-
-'''
+            echo 'Pipeline completed successfully.'
         }
 
-
         failure {
-
-            echo '''
-=======================================
-Pipeline Failed.
-=======================================
-
-'''
+            echo 'Pipeline failed. Check Jenkins Console Output.'
         }
     }
 }
