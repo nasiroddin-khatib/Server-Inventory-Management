@@ -341,6 +341,7 @@ variable "frontend_bucket_name" {
 variable "backend_ami_id" {
   description = "AMI ID created by Packer for backend instances"
   type        = string
+  default     = null
 }
 
 ############################################
