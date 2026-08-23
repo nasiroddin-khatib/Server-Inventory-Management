@@ -58,15 +58,23 @@ pipeline {
                         set -e
 
                         terraform apply \
-                         
+                          -target=aws_subnet.public_subnet_2 \
+                          -target=aws_subnet.private_subnet_1 \
+                          -target=aws_subnet.private_subnet_2 \
+                          -target=aws_eip.nat_eip \
+                          -target=aws_nat_gateway.nat_gateway \
+                          -target=aws_route_table.public_route_table \
+                          -target=aws_route_table.private_route_table \
+                          -target=aws_route_table_association.public_subnet_2 \
+                          -target=aws_route_table_association.private_subnet_1 \
+                          -target=aws_route_table_association.private_subnet_2 \
                           -target=aws_security_group.packer_sg \
                           -target=aws_iam_role.backend_role \
                           -target=aws_iam_role_policy_attachment.backend_ssm \
                           -target=aws_iam_role_policy_attachment.backend_cloudwatch \
                           -target=aws_iam_instance_profile.backend_instance_profile \
                           -target=aws_s3_bucket.frontend \
-                          -target=aws_secretsmanager_secret.nexus_credentials \                          
-                          -target=aws_iam_role_policy_attachment.jenkins_ssm \                       
+                          -target=aws_secretsmanager_secret.nexus_credentials \
                           -target=aws_iam_role.nexus_role \
                           -target=aws_iam_role_policy_attachment.nexus_ssm \
                           -target=aws_iam_instance_profile.nexus_profile \
@@ -82,26 +90,18 @@ pipeline {
             steps {
                 input(
                     message: '''
-========================================
 Nexus Repository Configuration Required
-========================================
 
 Terraform has created the Nexus server.
 
-Now:
-
 1. Open the Nexus Repository Manager UI.
-2. Wait until Nexus is fully started.
-3. Log in to Nexus.
-4. Create the hosted Maven repository required
-   by this project.
-5. Verify that the repository is available.
-6. Return to Jenkins.
-7. Click "Proceed".
-
-========================================
+2. Log in to Nexus.
+3. Create the hosted Maven repository required by this project.
+4. Verify that the repository is available.
+5. Return to Jenkins.
+6. Click Proceed.
 ''',
-                    ok: 'Nexus Repository Created - Continue'
+                    ok: 'Repository Created - Continue'
                 )
             }
         }
@@ -110,20 +110,15 @@ Now:
             steps {
                 input(
                     message: '''
-========================================
 Nexus Credentials Required
-========================================
 
-Open AWS Secrets Manager and:
-
-1. Open: server-inventory/nexus-credentials
-2. Store the Nexus username.
-3. Store the Nexus password.
-4. Save the secret.
-5. Return to Jenkins.
-6. Click "Proceed".
-
-========================================
+1. Open AWS Secrets Manager.
+2. Open server-inventory/nexus-credentials.
+3. Store the Nexus username.
+4. Store the Nexus password.
+5. Save the secret.
+6. Return to Jenkins.
+7. Click Proceed.
 ''',
                     ok: 'Credentials Stored - Continue'
                 )
@@ -177,14 +172,6 @@ Open AWS Secrets Manager and:
                     unset nexus_username
                     unset nexus_password
                 '''
-            }
-        }
-
-        stage('Package') {
-            steps {
-                dir('backend') {
-                    sh 'mvn package'
-                }
             }
         }
 
@@ -270,6 +257,7 @@ Open AWS Secrets Manager and:
                 rm -f jenkins/settings.xml
                 rm -f "$HOME/.m2/settings.xml"
                 rm -f terraform/tfplan
+                rm -f backend-ami-id.txt
             '''
         }
 
