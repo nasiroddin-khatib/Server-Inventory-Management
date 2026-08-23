@@ -14,7 +14,7 @@ resource "aws_cloudwatch_metric_alarm" "cpu_high" {
   threshold           = 70
 
   dimensions = {
-    AutoScalingGroupName = aws_autoscaling_group.backend.name
+    AutoScalingGroupName = aws_autoscaling_group.backend[0].name
   }
 
   alarm_description = "Scale Out when CPU > 70%"
@@ -48,7 +48,7 @@ resource "aws_cloudwatch_metric_alarm" "cpu_low" {
   threshold           = 30
 
   dimensions = {
-    AutoScalingGroupName = aws_autoscaling_group.backend.name
+    AutoScalingGroupName = aws_autoscaling_group.backend[0].name
   }
 
   alarm_description = "Scale In when CPU < 30%"
