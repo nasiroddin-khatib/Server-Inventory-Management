@@ -3,7 +3,7 @@
 ############################################
 
 resource "aws_cloudwatch_metric_alarm" "cpu_high" {
-
+count = var.backend_ami_id != null ? 1 : 0
   alarm_name          = "backend-cpu-high"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 2
