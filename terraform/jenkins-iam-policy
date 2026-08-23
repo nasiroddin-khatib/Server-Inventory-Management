@@ -1,0 +1,53 @@
+# ==========================================================
+# Terraform S3 Backend Policy
+# ==========================================================
+
+resource "aws_iam_policy" "jenkins_terraform_state" {
+
+  name = "${var.project}-jenkins-terraform-state"
+
+  policy = jsonencode({
+
+    Version = "2012-10-17"
+
+    Statement = [
+
+      {
+        Effect = "Allow"
+
+        Action = [
+          "s3:ListBucket"
+        ]
+
+        Resource = "arn:aws:s3:::terraform-state-575458732395-ap-south-1-an"
+      },
+
+      {
+        Effect = "Allow"
+
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject"
+        ]
+
+        Resource = [
+          "arn:aws:s3:::terraform-state-575458732395-ap-south-1-an/server-inventory/terraform.tfstate",
+          "arn:aws:s3:::terraform-state-575458732395-ap-south-1-an/server-inventory/terraform.tfstate.tflock"
+        ]
+      }
+    ]
+  })
+}
+
+
+# ==========================================================
+# Attach Terraform S3 Backend Policy to Jenkins Role
+# ==========================================================
+
+resource "aws_iam_role_policy_attachment" "jenkins_terraform_state" {
+
+  role = aws_iam_role.jenkins_role.name
+
+  policy_arn = aws_iam_policy.jenkins_terraform_state.arn
+}
