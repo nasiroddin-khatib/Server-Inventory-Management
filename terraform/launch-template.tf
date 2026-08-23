@@ -4,6 +4,7 @@
 
 resource "aws_launch_template" "backend" {
 
+  count = var.backend_ami_id != null ? 1 : 0
   name_prefix   = "backend-lt-"
   image_id      = var.backend_ami_id
   instance_type = var.backend_instance_type
