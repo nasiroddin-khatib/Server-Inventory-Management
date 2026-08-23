@@ -4,6 +4,8 @@
 
 resource "aws_autoscaling_group" "backend" {
 
+  count = var.backend_ami_id != null ? 1 : 0
+
   name = "backend-asg"
 
   min_size         = 1
