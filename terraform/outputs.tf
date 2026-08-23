@@ -241,11 +241,11 @@ output "autoscaling_group_arn" {
 # ======================================================================
 
 output "scale_out_policy_arn" {
-  value = aws_autoscaling_policy.scale_out.arn
+  value = aws_autoscaling_policy.scale_out[0].arn
 }
 
 output "scale_in_policy_arn" {
-  value = aws_autoscaling_policy.scale_in.arn
+  value = aws_autoscaling_policy.scale_in[0].arn
 }
 
 output "frontend_bucket_name" {
