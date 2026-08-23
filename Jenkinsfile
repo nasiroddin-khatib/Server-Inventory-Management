@@ -4,19 +4,30 @@ pipeline {
 
     stages {
 
+        // ============================================
+        // Checkout
+        // ============================================
+
         stage('Checkout') {
+
             steps {
+
                 git branch: 'master',
                     url: 'https://github.com/nasiroddin-khatib/Server-Inventory-Management.git'
             }
         }
 
-stage('Configure Nexus Credentials') {
 
-    steps {
+        // ============================================
+        // Wait for Nexus Credentials
+        // ============================================
 
-        input(
-            message: '''
+        stage('Enter Nexus Credentials') {
+
+            steps {
+
+                input(
+                    message: '''
 ========================================
 Nexus Credentials Required
 ========================================
@@ -34,103 +45,134 @@ Now:
 
 ========================================
 ''',
-            ok: 'Credentials Stored - Continue Pipeline'
-        )
+                    ok: 'Credentials Stored - Continue Pipeline'
+                )
+            }
+        }
 
-    }
-}
-        
-        
+
+        // ============================================
+        // Configure Nexus Credentials
+        // ============================================
+
         stage('Configure Nexus Credentials') {
 
-    steps {
-
-        sh '''
-            echo "Fetching Nexus credentials from AWS Secrets Manager..."
-
-            SECRET_JSON=$(aws secretsmanager get-secret-value \
-                --secret-id "${NEXUS_SECRET_NAME}" \
-                --query SecretString \
-                --output text)
-
-            NEXUS_USERNAME=$(echo "$SECRET_JSON" | jq -r '.username')
-            NEXUS_PASSWORD=$(echo "$SECRET_JSON" | jq -r '.password')
-
-            export NEXUS_USERNAME
-            export NEXUS_PASSWORD
-
-            envsubst < jenkins/settings.xml.tpl > jenkins/settings.xml
-
-            echo "Nexus settings.xml generated."
-        '''
-    }
-}
-        
-        
-        
-        stage('Build') {
             steps {
+
+                sh '''
+                    set -e
+
+                    echo "Fetching Nexus credentials from AWS Secrets Manager..."
+
+                    SECRET_JSON=$(aws secretsmanager get-secret-value \
+                        --secret-id "server-inventory/nexus-credentials" \
+                        --query SecretString \
+                        --output text)
+
+                    NEXUS_USERNAME=$(echo "$SECRET_JSON" | jq -r '.username')
+                    NEXUS_PASSWORD=$(echo "$SECRET_JSON" | jq -r '.password')
+
+                    export NEXUS_USERNAME
+                    export NEXUS_PASSWORD
+
+                    envsubst < jenkins/settings.xml.tpl > jenkins/settings.xml
+
+                    unset SECRET_JSON
+                    unset NEXUS_USERNAME
+                    unset NEXUS_PASSWORD
+
+                    echo "Nexus settings.xml generated successfully."
+                '''
+            }
+        }
+
+
+        // ============================================
+        // Build
+        // ============================================
+
+        stage('Build') {
+
+            steps {
+
                 dir('backend') {
+
                     sh 'mvn clean test'
                 }
             }
         }
 
 
+        // ============================================
+        // SonarQube Analysis
+        // ============================================
 
         stage('SonarQube Analysis') {
+
             steps {
+
                 dir('backend') {
 
                     withSonarQubeEnv('sonarqube-server') {
 
                         sh 'mvn sonar:sonar'
-
                     }
                 }
             }
         }
 
 
+        // ============================================
+        // Quality Gate
+        // ============================================
+
         stage('Quality Gate') {
+
             steps {
 
                 timeout(time: 5, unit: 'MINUTES') {
 
                     waitForQualityGate abortPipeline: true
-
                 }
             }
         }
 
 
+        // ============================================
+        // Package
+        // ============================================
+
         stage('Package') {
+
             steps {
 
                 dir('backend') {
 
                     sh 'mvn package'
-
                 }
             }
         }
 
 
+        // ============================================
+        // Deploy to Nexus
+        // ============================================
+
         stage('Deploy to Nexus') {
+
             steps {
 
                 dir('backend') {
 
-                    sh 'mvn deploy -s /var/jenkins_home/.m2/settings.xml'
-
+                    sh 'mvn deploy -s ../jenkins/settings.xml'
                 }
             }
         }
 
-        
-        ############################################
-        # Packer
-        ############################################
+
+        // ============================================
+        // Packer
+        // ============================================
 
         stage('Build Backend AMI') {
 
@@ -159,7 +201,6 @@ Now:
                           -var "ssh_private_key_file=$PACKER_SSH_KEY" \
                           .
 
-
                         packer build \
                           -var-file=terraform.pkrvars.hcl \
                           -var "ssh_private_key_file=$PACKER_SSH_KEY" \
@@ -176,9 +217,9 @@ Now:
         }
 
 
-        ############################################
-        # Terraform
-        ############################################
+        // ============================================
+        // Terraform
+        // ============================================
 
         stage('Update Infrastructure') {
 
@@ -208,45 +249,51 @@ Now:
     }
 
 
+    // ============================================
+    // Post Actions
+    // ============================================
+
     post {
+
+        always {
+
+            sh '''
+                echo "Cleaning temporary Nexus settings file..."
+
+                rm -f jenkins/settings.xml
+
+                echo "Temporary Nexus settings file removed."
+            '''
+        }
+
 
         success {
 
             echo '''
-            =======================================
-            Pipeline executed successfully.
-            Backend AMI created by Packer.
-            Launch Template updated.
-            ASG will launch backend instances
-            using the new AMI.
-            Frontend deployed to S3.
-            =======================================
-            '''
+=======================================
+Pipeline executed successfully.
+=======================================
 
+Backend AMI created by Packer.
+Launch Template updated.
+ASG will launch backend instances
+using the new AMI.
+Frontend deployed to S3.
+Nexus artifact deployment completed.
+
+=======================================
+'''
         }
 
 
         failure {
 
             echo '''
-            =======================================
-            Pipeline Failed.
-            Please check Jenkins Console Output.
-            =======================================
-            '''
-
+=======================================
+Pipeline Failed.
+Please check Jenkins Console Output.
+=======================================
+'''
         }
-
-    }
-
-}
-
-
-
-post {
-    always {
-        sh '''
-            rm -f jenkins/settings.xml
-        '''
     }
 }
