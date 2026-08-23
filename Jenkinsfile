@@ -75,13 +75,27 @@ Now:
                     export NEXUS_USERNAME
                     export NEXUS_PASSWORD
 
+                    echo "Generating Maven settings.xml..."
+
                     envsubst < jenkins/settings.xml.tpl > jenkins/settings.xml
+
+                    chmod 600 jenkins/settings.xml
+
+                    echo "Creating Maven configuration directory if required..."
+
+                    mkdir -p "$HOME/.m2"
+
+                    echo "Copying generated settings.xml to Maven configuration directory..."
+
+                    cp jenkins/settings.xml "$HOME/.m2/settings.xml"
+
+                    chmod 600 "$HOME/.m2/settings.xml"
 
                     unset SECRET_JSON
                     unset NEXUS_USERNAME
                     unset NEXUS_PASSWORD
 
-                    echo "Nexus settings.xml generated successfully."
+                    echo "Nexus Maven configuration completed successfully."
                 '''
             }
         }
@@ -164,7 +178,7 @@ Now:
 
                 dir('backend') {
 
-                    sh 'mvn deploy -s ../jenkins/settings.xml'
+                    sh 'mvn deploy'
                 }
             }
         }
@@ -258,11 +272,12 @@ Now:
         always {
 
             sh '''
-                echo "Cleaning temporary Nexus settings file..."
+                echo "Cleaning temporary Nexus credentials..."
 
                 rm -f jenkins/settings.xml
+                rm -f "$HOME/.m2/settings.xml"
 
-                echo "Temporary Nexus settings file removed."
+                echo "Temporary Nexus credential files removed."
             '''
         }
 
