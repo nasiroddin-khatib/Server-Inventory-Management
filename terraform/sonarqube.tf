@@ -140,9 +140,24 @@ echo "==============================="
 echo "Installing Java, AWS CLI and Tools"
 echo "==============================="
 
-apt install -y openjdk-17-jdk wget unzip curl awscli jq
+apt install -y openjdk-17-jdk wget unzip curl jq
 
 java -version
+
+echo "==============================="
+echo "Installing AWS CLI v2"
+echo "==============================="
+
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" \
+    -o "/tmp/awscliv2.zip"
+
+unzip -q /tmp/awscliv2.zip -d /tmp
+
+/tmp/aws/install
+
+rm -rf /tmp/aws /tmp/awscliv2.zip
+
+aws --version
 
 
 echo "==============================="
