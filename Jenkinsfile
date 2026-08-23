@@ -14,6 +14,88 @@ pipeline {
         }
 
 
+        stage('Terraform Format and Validate') {
+
+            steps {
+
+                dir('terraform') {
+
+                    sh '''
+                        set -e
+
+                        echo "======================================="
+                        echo "Terraform Format"
+                        echo "======================================="
+
+                        terraform fmt -recursive
+
+
+                        echo "======================================="
+                        echo "Terraform Init"
+                        echo "======================================="
+
+                        terraform init
+
+
+                        echo "======================================="
+                        echo "Terraform Validate"
+                        echo "======================================="
+
+                        terraform validate
+
+
+                        echo "======================================="
+                        echo "Terraform Format and Validation Completed"
+                        echo "======================================="
+                    '''
+                }
+            }
+        }
+
+
+        // ============================================================
+        // Stage 1 - Create Base Infrastructure
+        // ============================================================
+
+        stage('Terraform - Base Infrastructure') {
+
+            steps {
+
+                dir('terraform') {
+
+                    sh '''
+                        set -e
+
+                        echo "======================================="
+                        echo "Creating Base Infrastructure"
+                        echo "======================================="
+
+
+                        terraform apply \
+                          -target=aws_security_group.packer_sg \
+                          -target=aws_iam_role.backend_role \
+                          -target=aws_iam_role_policy_attachment.backend_ssm \
+                          -target=aws_iam_role_policy_attachment.backend_cloudwatch \
+                          -target=aws_iam_instance_profile.backend_instance_profile \
+                          -target=aws_s3_bucket.frontend \
+                          -target=aws_secretsmanager_secret.nexus_credentials \
+                          -target=aws_iam_role.nexus_role \
+                          -target=aws_iam_role_policy_attachment.nexus_ssm \
+                          -target=aws_iam_instance_profile.nexus_profile \
+                          -target=aws_instance.nexus \
+                          -target=local_file.backend_pom \
+                          -auto-approve
+
+
+                        echo "======================================="
+                        echo "Base Infrastructure Created"
+                        echo "======================================="
+                    '''
+                }
+            }
+        }
+
+
         stage('Enter Nexus Credentials') {
 
             steps {
