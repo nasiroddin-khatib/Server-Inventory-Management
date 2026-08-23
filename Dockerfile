@@ -17,8 +17,7 @@ RUN apt-get update && \
         sudo \
         openssh-client \
         ca-certificates \
-        gnupg \
-        envsubst \
+        gnupg \       
         maven \
         python3 \
         python3-pip \
