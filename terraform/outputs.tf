@@ -180,11 +180,11 @@ output "rds_database_name" {
 # ===========================================================
 
 output "launch_template_id" {
-  value = aws_launch_template.backend[0].id
+  value = try(aws_launch_template.backend[0].id, null)
 }
 
 output "launch_template_latest_version" {
-  value = aws_launch_template.backend[0].latest_version
+  value = try(aws_launch_template.backend[0].latest_version, null)
 }
 
 
@@ -229,11 +229,11 @@ output "listener_arn" {
 # ===================================================================
 
 output "autoscaling_group_name" {
-  value = aws_autoscaling_group.backend[0].name
+  value = try(aws_autoscaling_group.backend[0].name, null)
 }
 
 output "autoscaling_group_arn" {
-  value = aws_autoscaling_group.backend[0].arn
+  value = try(aws_autoscaling_group.backend[0].arn, null)
 }
 
 # ======================================================================
