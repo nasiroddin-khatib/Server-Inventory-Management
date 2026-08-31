@@ -64,7 +64,7 @@ resource "aws_instance" "nexus" {
   # 2 vCPU / 4 GiB RAM
   instance_type = "c7i-flex.large"
 
-cpu_options {
+  cpu_options {
     core_count       = 1
     threads_per_core = 1
   }
