@@ -64,6 +64,11 @@ resource "aws_instance" "nexus" {
   # 2 vCPU / 4 GiB RAM
   instance_type = "c7i-flex.large"
 
+cpu_options {
+    core_count       = 1
+    threads_per_core = 1
+  }
+
   # Existing Terraform public subnet
   subnet_id = aws_subnet.public_subnet_1.id
 
