@@ -9,6 +9,11 @@ resource "aws_launch_template" "backend" {
   image_id      = var.backend_ami_id
   instance_type = var.backend_instance_type
 
+cpu_options {
+  core_count       = 1
+  threads_per_core = 1
+}
+
   key_name = "mykey"
 
   ############################################
