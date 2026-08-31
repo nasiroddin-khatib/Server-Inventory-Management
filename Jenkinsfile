@@ -25,6 +25,69 @@ pipeline {
             }
         }
 
+        stage('Terraform - SonarQube Infrastructure') {
+            steps {
+                dir('terraform') {
+                    sh '''
+                        set -e
+
+                        terraform apply \
+                          -target=aws_security_group.sonarqube_sg \
+                          -target=aws_vpc_security_group_ingress_rule.sonarqube_http \
+                          -target=aws_vpc_security_group_egress_rule.sonarqube_all_outbound \
+                          -target=aws_iam_role.sonarqube_role \
+                          -target=aws_iam_role_policy.sonarqube_secrets_access \
+                          -target=aws_iam_role_policy_attachment.sonarqube_ssm \
+                          -target=aws_iam_instance_profile.sonarqube_profile \
+                          -target=aws_instance.sonarqube \
+                          -auto-approve
+                    '''
+                }
+            }
+        }
+
+        stage('Wait for SonarQube') {
+            steps {
+                sh '''
+                    set -e
+
+                    SONAR_IP=$(aws ec2 describe-instances \
+                      --filters \
+                        "Name=tag:Name,Values=Server-Inventory-Sonarqube" \
+                        "Name=instance-state-name,Values=running" \
+                      --query 'Reservations[0].Instances[0].PublicIpAddress' \
+                      --output text)
+
+                    if [ -z "$SONAR_IP" ] || [ "$SONAR_IP" = "None" ]; then
+                        echo "ERROR: SonarQube public IP was not found."
+                        exit 1
+                    fi
+
+                    echo "SonarQube IP: $SONAR_IP"
+
+                    for i in $(seq 1 30); do
+
+                        STATUS=$(curl -s \
+                          "http://$SONAR_IP:9000/api/system/status" \
+                          | jq -r '.status' 2>/dev/null || true)
+
+                        echo "SonarQube status: $STATUS"
+
+                        if [ "$STATUS" = "UP" ]; then
+                            echo "SonarQube is ready."
+                            exit 0
+                        fi
+
+                        sleep 10
+
+                    done
+
+                    echo "ERROR: SonarQube did not become ready."
+                    exit 1
+                '''
+            }
+        }
+
         stage('Build and Test') {
             steps {
                 dir('backend') {
