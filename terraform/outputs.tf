@@ -328,10 +328,10 @@ output "nexus_public_ip" {
 
 output "nexus_secret_name" {
   description = "Name of the Nexus credentials secret"
-  value       = aws_secretsmanager_secret.nexus_credentials.name
+  value       = data.aws_secretsmanager_secret.nexus_credentials.name
 }
 
 output "nexus_secret_arn" {
   description = "ARN of the Nexus credentials secret"
-  value       = aws_secretsmanager_secret.nexus_credentials.arn
+  value       = data.aws_secretsmanager_secret.nexus_credentials.arn
 }
