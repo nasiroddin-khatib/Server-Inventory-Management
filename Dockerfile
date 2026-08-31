@@ -55,17 +55,16 @@ RUN mkdir -p /tmp/packer && \
     chmod +x /usr/local/bin/packer && \
     rm -rf /tmp/packer
 
-# =========================
-# Install Sonar Scanner
-# =========================
-
-RUN wget https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/\
-sonar-scanner-5.0.1.3006-linux.zip && \
-    unzip sonar-scanner-5.0.1.3006-linux.zip && \
-    mv sonar-scanner-5.0.1.3006-linux /opt/sonar-scanner
-
-ENV PATH="$PATH:/opt/sonar-scanner/bin"
-    
+############################################
+# Install SonarQube Scanner CLI
+############################################
+RUN wget -q -O /tmp/sonar-scanner.zip \
+    https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-7.3.0.5189-linux-x64.zip && \
+    unzip -q /tmp/sonar-scanner.zip -d /opt && \
+    mv /opt/sonar-scanner-7.3.0.5189-linux-x64 /opt/sonar-scanner && \
+    ln -s /opt/sonar-scanner/bin/sonar-scanner /usr/local/bin/sonar-scanner && \
+    rm -f /tmp/sonar-scanner.zip && \
+    sonar-scanner --version
 
 ############################################
 # Verify Installations
