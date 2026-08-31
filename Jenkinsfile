@@ -75,6 +75,7 @@ pipeline {
 
                         if [ "$STATUS" = "UP" ]; then
                             echo "SonarQube is ready."
+                            echo "http://$SONAR_IP:9000" > sonar-url.txt
                             exit 0
                         fi
 
@@ -85,6 +86,49 @@ pipeline {
                     echo "ERROR: SonarQube did not become ready."
                     exit 1
                 '''
+            }
+        }
+
+        stage('Configure SonarQube in Jenkins') {
+            steps {
+                script {
+
+                    def sonarUrl = sh(
+                        script: 'cat sonar-url.txt',
+                        returnStdout: true
+                    ).trim()
+
+                    input(
+                        message: """
+SonarQube Jenkins Configuration Required
+
+SonarQube is now running successfully.
+
+Configure SonarQube in Jenkins:
+
+1. Go to:
+   Manage Jenkins → System
+
+2. Find:
+   SonarQube servers
+
+3. Add/configure a SonarQube server with:
+
+   Name:
+   sonarqube-server
+
+   Server URL:
+   ${sonarUrl}
+
+4. Save the Jenkins configuration.
+
+5. Return to this pipeline.
+
+6. Click Proceed.
+""",
+                        ok: 'SonarQube Configured - Continue'
+                    )
+                }
             }
         }
 
@@ -321,6 +365,7 @@ Nexus Credentials Required
                 rm -f "$HOME/.m2/settings.xml"
                 rm -f terraform/tfplan
                 rm -f backend-ami-id.txt
+                rm -f sonar-url.txt
             '''
         }
 
