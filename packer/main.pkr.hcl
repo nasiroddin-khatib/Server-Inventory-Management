@@ -192,7 +192,7 @@ build {
 
       "cd /tmp",
 
-      "wget -q -f -O apache-tomcat-10.1.57.tar.gz https://archive.apache.org/dist/tomcat/tomcat-10/v10.1.57/bin/apache-tomcat-10.1.57.tar.gz",
+      "wget -q -O apache-tomcat-10.1.57.tar.gz https://archive.apache.org/dist/tomcat/tomcat-10/v10.1.57/bin/apache-tomcat-10.1.57.tar.gz",
 
 
       "echo '========================================'",
