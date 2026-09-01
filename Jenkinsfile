@@ -27,7 +27,7 @@ pipeline {
                         set -e
 
                         terraform fmt -recursive
-                        terraform init
+                        terraform init -input=false
                         terraform validate
                     '''
                 }
@@ -76,12 +76,58 @@ pipeline {
                           -target=aws_vpc_security_group_ingress_rule.nexus_http \
                           -target=aws_vpc_security_group_ingress_rule.nexus_https \
                           -target=aws_vpc_security_group_ingress_rule.nexus_ssh \
+                          -target=aws_vpc_security_group_ingress_rule.nexus_from_jenkins \
                           -target=aws_vpc_security_group_egress_rule.nexus_all_outbound \
                           -target=aws_iam_role.nexus_role \
                           -target=aws_iam_role_policy_attachment.nexus_ssm \
                           -target=aws_iam_instance_profile.nexus_profile \
                           -target=aws_instance.nexus \
                           -auto-approve
+                    '''
+                }
+            }
+        }
+
+
+        // ============================================================
+        // Terraform - RDS Infrastructure
+        //
+        // IMPORTANT:
+        // RDS is created BEFORE application build/deployment stages.
+        // Terraform will wait until the RDS instance is available.
+        // ============================================================
+
+        stage('Terraform - RDS Infrastructure') {
+            steps {
+                dir('terraform') {
+                    sh '''
+                        set -e
+
+                        echo "======================================="
+                        echo "Creating RDS PostgreSQL Infrastructure"
+                        echo "======================================="
+
+                        terraform apply \
+                          -target=aws_db_subnet_group.db_subnet_group \
+                          -target=aws_security_group.rds_sg \
+                          -target=aws_vpc_security_group_ingress_rule.rds_from_backend \
+                          -target=aws_vpc_security_group_egress_rule.rds_all_outbound \
+                          -target=aws_db_instance.postgres \
+                          -auto-approve
+
+                        echo "======================================="
+                        echo "RDS Infrastructure Created"
+                        echo "======================================="
+
+                        echo "RDS Endpoint:"
+                        terraform output -raw rds_endpoint
+
+                        echo "RDS Database Name:"
+                        terraform output -raw rds_database_name
+
+                        echo "======================================="
+                        echo "RDS is now available"
+                        echo "======================================="
                     '''
                 }
             }
@@ -287,6 +333,8 @@ Configure SonarQube in Jenkins:
                           -target=aws_route_table_association.private_subnet_1 \
                           -target=aws_route_table_association.private_subnet_2 \
                           -target=aws_security_group.packer_sg \
+                          -target=aws_vpc_security_group_ingress_rule.packer_ssh_from_jenkins \
+                          -target=aws_vpc_security_group_egress_rule.packer_all_outbound \
                           -target=aws_iam_role.backend_role \
                           -target=aws_iam_role_policy_attachment.backend_ssm \
                           -target=aws_iam_role_policy_attachment.backend_cloudwatch \
@@ -597,7 +645,8 @@ Nexus Credentials Required
                             exit 1
                         fi
 
-                        terraform init
+                        terraform init -input=false
+
                         terraform validate
 
                         terraform plan \
