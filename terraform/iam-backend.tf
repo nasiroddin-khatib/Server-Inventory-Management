@@ -41,6 +41,7 @@ resource "aws_iam_role" "backend_role" {
 
 }
 
+
 # ==========================================================
 # SSM
 # ==========================================================
@@ -53,6 +54,7 @@ resource "aws_iam_role_policy_attachment" "backend_ssm" {
 
 }
 
+
 # ==========================================================
 # CloudWatch Agent
 # ==========================================================
@@ -64,6 +66,47 @@ resource "aws_iam_role_policy_attachment" "backend_cloudwatch" {
   policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
 
 }
+
+
+# ==========================================================
+# RDS Secrets Manager Access
+#
+# Allows the backend EC2 instance to retrieve the
+# RDS-managed master username/password secret.
+# ==========================================================
+
+resource "aws_iam_role_policy" "backend_rds_secret_access" {
+
+  name = "backend-rds-secret-access"
+
+  role = aws_iam_role.backend_role.id
+
+  policy = jsonencode({
+
+    Version = "2012-10-17"
+
+    Statement = [
+
+      {
+
+        Effect = "Allow"
+
+        Action = [
+
+          "secretsmanager:GetSecretValue"
+
+        ]
+
+        Resource = aws_db_instance.postgres.master_user_secret[0].secret_arn
+
+      }
+
+    ]
+
+  })
+
+}
+
 
 # ==========================================================
 # Instance Profile
