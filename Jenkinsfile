@@ -11,6 +11,7 @@ pipeline {
             }
         }
 
+
         stage('Terraform Format and Validate') {
             steps {
                 dir('terraform') {
@@ -24,6 +25,7 @@ pipeline {
                 }
             }
         }
+
 
         stage('Terraform - SonarQube Infrastructure') {
             steps {
@@ -45,6 +47,54 @@ pipeline {
                 }
             }
         }
+
+
+        stage('Terraform - Nexus Infrastructure') {
+            steps {
+                dir('terraform') {
+                    sh '''
+                        set -e
+
+                        terraform apply \
+                          -target=aws_security_group.nexus_sg \
+                          -target=aws_vpc_security_group_ingress_rule.nexus_http \
+                          -target=aws_vpc_security_group_ingress_rule.nexus_https \
+                          -target=aws_vpc_security_group_ingress_rule.nexus_ssh \
+                          -target=aws_vpc_security_group_egress_rule.nexus_all_outbound \
+                          -target=aws_iam_role.nexus_role \
+                          -target=aws_iam_role_policy_attachment.nexus_ssm \
+                          -target=aws_iam_instance_profile.nexus_profile \
+                          -target=aws_instance.nexus \
+                          -auto-approve
+                    '''
+                }
+            }
+        }
+
+
+        stage('Generate Maven POM') {
+            steps {
+                dir('terraform') {
+                    sh '''
+                        set -e
+
+                        terraform apply \
+                          -target=local_file.backend_pom \
+                          -auto-approve
+
+                        if [ ! -f ../backend/pom.xml ]; then
+                            echo "ERROR: backend/pom.xml was not generated."
+                            exit 1
+                        fi
+
+                        echo "Maven pom.xml generated successfully."
+
+                        ls -l ../backend/pom.xml
+                    '''
+                }
+            }
+        }
+
 
         stage('Wait for SonarQube') {
             steps {
@@ -89,6 +139,7 @@ pipeline {
             }
         }
 
+
         stage('Configure SonarQube in Jenkins') {
             steps {
                 script {
@@ -132,23 +183,38 @@ Configure SonarQube in Jenkins:
             }
         }
 
+
         stage('Build and Test') {
             steps {
                 dir('backend') {
-                    sh 'mvn clean test'
+                    sh '''
+                        set -e
+
+                        test -f pom.xml
+
+                        mvn clean test
+                    '''
                 }
             }
         }
+
 
         stage('SonarQube Analysis') {
             steps {
                 dir('backend') {
                     withSonarQubeEnv('sonarqube-server') {
-                        sh 'mvn sonar:sonar'
+                        sh '''
+                            set -e
+
+                            test -f pom.xml
+
+                            mvn sonar:sonar
+                        '''
                     }
                 }
             }
         }
+
 
         stage('Quality Gate') {
             steps {
@@ -157,6 +223,7 @@ Configure SonarQube in Jenkins:
                 }
             }
         }
+
 
         stage('Terraform - Base Infrastructure') {
             steps {
@@ -186,12 +253,12 @@ Configure SonarQube in Jenkins:
                           -target=aws_iam_role_policy_attachment.nexus_ssm \
                           -target=aws_iam_instance_profile.nexus_profile \
                           -target=aws_instance.nexus \
-                          -target=local_file.backend_pom \
                           -auto-approve
                     '''
                 }
             }
         }
+
 
         stage('Configure Nexus Repository') {
             steps {
@@ -213,6 +280,7 @@ Terraform has created the Nexus server.
             }
         }
 
+
         stage('Enter Nexus Credentials') {
             steps {
                 input(
@@ -231,6 +299,7 @@ Nexus Credentials Required
                 )
             }
         }
+
 
         stage('Configure Nexus Credentials') {
             steps {
@@ -282,13 +351,21 @@ Nexus Credentials Required
             }
         }
 
+
         stage('Deploy to Nexus') {
             steps {
                 dir('backend') {
-                    sh 'mvn deploy'
+                    sh '''
+                        set -e
+
+                        test -f pom.xml
+
+                        mvn deploy
+                    '''
                 }
             }
         }
+
 
         stage('Build Backend AMI') {
             steps {
@@ -328,6 +405,7 @@ Nexus Credentials Required
             }
         }
 
+
         stage('Terraform - Update Infrastructure') {
             steps {
                 dir('terraform') {
@@ -356,6 +434,7 @@ Nexus Credentials Required
             }
         }
     }
+
 
     post {
 
