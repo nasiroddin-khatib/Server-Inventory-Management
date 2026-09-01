@@ -176,7 +176,7 @@ build {
       "echo 'Installing Java 17, wget and curl'",
       "echo '========================================'",
 
-      "sudo dnf install -y java-17-amazon-corretto-devel wget curl",
+      "sudo dnf install -y java-17-amazon-corretto-devel wget",
 
 
       "echo '========================================'",
