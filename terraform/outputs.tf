@@ -104,14 +104,7 @@ output "monitoring_sg_id" {
   value = aws_security_group.monitoring_sg.id
 }
 
-# ==========================================================
-# PACKER SG
-# ==========================================================
 
-output "packer_security_group_id" {
-  description = "Security Group ID used by Packer build instance"
-  value       = aws_security_group.packer_sg.id
-}
 
 # ==========================================================
 # BACKEND IAM
