@@ -4,6 +4,10 @@ pipeline {
 
     stages {
 
+        // ============================================================
+        // Checkout
+        // ============================================================
+
         stage('Checkout') {
             steps {
                 git branch: 'master',
@@ -11,6 +15,10 @@ pipeline {
             }
         }
 
+
+        // ============================================================
+        // Terraform Format and Validate
+        // ============================================================
 
         stage('Terraform Format and Validate') {
             steps {
@@ -26,6 +34,10 @@ pipeline {
             }
         }
 
+
+        // ============================================================
+        // Terraform - SonarQube Infrastructure
+        // ============================================================
 
         stage('Terraform - SonarQube Infrastructure') {
             steps {
@@ -48,6 +60,10 @@ pipeline {
             }
         }
 
+
+        // ============================================================
+        // Terraform - Nexus Infrastructure
+        // ============================================================
 
         stage('Terraform - Nexus Infrastructure') {
             steps {
@@ -72,6 +88,10 @@ pipeline {
         }
 
 
+        // ============================================================
+        // Generate Maven POM
+        // ============================================================
+
         stage('Generate Maven POM') {
             steps {
                 dir('terraform') {
@@ -95,6 +115,10 @@ pipeline {
             }
         }
 
+
+        // ============================================================
+        // Wait for SonarQube
+        // ============================================================
 
         stage('Wait for SonarQube') {
             steps {
@@ -140,6 +164,10 @@ pipeline {
         }
 
 
+        // ============================================================
+        // Configure SonarQube in Jenkins
+        // ============================================================
+
         stage('Configure SonarQube in Jenkins') {
             steps {
                 script {
@@ -184,6 +212,10 @@ Configure SonarQube in Jenkins:
         }
 
 
+        // ============================================================
+        // Build and Test
+        // ============================================================
+
         stage('Build and Test') {
             steps {
                 dir('backend') {
@@ -198,6 +230,10 @@ Configure SonarQube in Jenkins:
             }
         }
 
+
+        // ============================================================
+        // SonarQube Analysis
+        // ============================================================
 
         stage('SonarQube Analysis') {
             steps {
@@ -216,6 +252,10 @@ Configure SonarQube in Jenkins:
         }
 
 
+        // ============================================================
+        // Quality Gate
+        // ============================================================
+
         stage('Quality Gate') {
             steps {
                 timeout(time: 5, unit: 'MINUTES') {
@@ -224,6 +264,10 @@ Configure SonarQube in Jenkins:
             }
         }
 
+
+        // ============================================================
+        // Terraform - Base Infrastructure
+        // ============================================================
 
         stage('Terraform - Base Infrastructure') {
             steps {
@@ -260,6 +304,10 @@ Configure SonarQube in Jenkins:
         }
 
 
+        // ============================================================
+        // Configure Nexus Repository
+        // ============================================================
+
         stage('Configure Nexus Repository') {
             steps {
                 input(
@@ -281,6 +329,10 @@ Terraform has created the Nexus server.
         }
 
 
+        // ============================================================
+        // Enter Nexus Credentials
+        // ============================================================
+
         stage('Enter Nexus Credentials') {
             steps {
                 input(
@@ -300,6 +352,10 @@ Nexus Credentials Required
             }
         }
 
+
+        // ============================================================
+        // Configure Nexus Credentials
+        // ============================================================
 
         stage('Configure Nexus Credentials') {
             steps {
@@ -352,6 +408,10 @@ Nexus Credentials Required
         }
 
 
+        // ============================================================
+        // Deploy to Nexus
+        // ============================================================
+
         stage('Deploy to Nexus') {
             steps {
                 dir('backend') {
@@ -367,37 +427,151 @@ Nexus Credentials Required
         }
 
 
+        // ============================================================
+        // Get Terraform Outputs Required by Packer
+        // ============================================================
+
+        stage('Get Packer Infrastructure IDs') {
+            steps {
+                sh '''
+                    set -e
+
+                    echo "======================================="
+                    echo "Getting Terraform Outputs for Packer"
+                    echo "======================================="
+
+                    cd terraform
+
+                    terraform init -input=false
+
+                    SUBNET_ID=$(terraform output -raw public_subnet_1_id)
+
+                    SECURITY_GROUP_ID=$(terraform output -raw packer_security_group_id)
+
+                    BACKEND_INSTANCE_PROFILE=$(terraform output -raw backend_instance_profile)
+
+                    if [ -z "$SUBNET_ID" ]; then
+                        echo "ERROR: Public subnet ID is empty."
+                        exit 1
+                    fi
+
+                    if [ -z "$SECURITY_GROUP_ID" ]; then
+                        echo "ERROR: Packer security group ID is empty."
+                        exit 1
+                    fi
+
+                    if [ -z "$BACKEND_INSTANCE_PROFILE" ]; then
+                        echo "ERROR: Backend instance profile is empty."
+                        exit 1
+                    fi
+
+                    cd ..
+
+                    echo "$SUBNET_ID" > packer-subnet-id.txt
+
+                    echo "$SECURITY_GROUP_ID" > packer-sg-id.txt
+
+                    echo "$BACKEND_INSTANCE_PROFILE" > backend-instance-profile.txt
+
+                    echo "Terraform outputs successfully retrieved."
+                '''
+            }
+        }
+
+
+        // ============================================================
+        // Build Backend AMI
+        // ============================================================
+
         stage('Build Backend AMI') {
             steps {
+
                 withCredentials([
                     file(
                         credentialsId: 'packer-ssh-key',
                         variable: 'PACKER_SSH_KEY'
                     )
                 ]) {
+
                     sh '''
                         set -e
+
+                        echo "======================================="
+                        echo "Initializing Packer"
+                        echo "======================================="
 
                         cd packer
 
                         packer init .
 
+
+                        echo "======================================="
+                        echo "Reading Terraform Outputs"
+                        echo "======================================="
+
+                        SUBNET_ID=$(cat ../packer-subnet-id.txt)
+
+                        SECURITY_GROUP_ID=$(cat ../packer-sg-id.txt)
+
+                        BACKEND_INSTANCE_PROFILE=$(cat ../backend-instance-profile.txt)
+
+
+                        if [ -z "$SUBNET_ID" ]; then
+                            echo "ERROR: Subnet ID is empty."
+                            exit 1
+                        fi
+
+                        if [ -z "$SECURITY_GROUP_ID" ]; then
+                            echo "ERROR: Security Group ID is empty."
+                            exit 1
+                        fi
+
+                        if [ -z "$BACKEND_INSTANCE_PROFILE" ]; then
+                            echo "ERROR: Backend Instance Profile is empty."
+                            exit 1
+                        fi
+
+
+                        echo "======================================="
+                        echo "Validating Packer"
+                        echo "======================================="
+
                         packer validate \
                           -var-file=terraform.pkrvars.hcl \
+                          -var "subnet_id=$SUBNET_ID" \
+                          -var "security_group_id=$SECURITY_GROUP_ID" \
+                          -var "backend_instance_profile_name=$BACKEND_INSTANCE_PROFILE" \
                           -var "ssh_private_key_file=$PACKER_SSH_KEY" \
                           .
+
+
+                        echo "======================================="
+                        echo "Building Backend AMI"
+                        echo "======================================="
 
                         packer build \
                           -var-file=terraform.pkrvars.hcl \
+                          -var "subnet_id=$SUBNET_ID" \
+                          -var "security_group_id=$SECURITY_GROUP_ID" \
+                          -var "backend_instance_profile_name=$BACKEND_INSTANCE_PROFILE" \
                           -var "ssh_private_key_file=$PACKER_SSH_KEY" \
                           .
 
+
+                        echo "======================================="
+                        echo "Reading AMI ID"
+                        echo "======================================="
+
                         AMI_ID=$(jq -r '.builds[-1].artifact_id' packer-manifest.json | cut -d: -f2)
+
 
                         if [ -z "$AMI_ID" ] || [ "$AMI_ID" = "null" ]; then
                             echo "Failed to obtain AMI ID."
                             exit 1
                         fi
+
+
+                        echo "Created AMI: $AMI_ID"
 
                         echo "$AMI_ID" > ../backend-ami-id.txt
                     '''
@@ -405,6 +579,10 @@ Nexus Credentials Required
             }
         }
 
+
+        // ============================================================
+        // Terraform - Update Infrastructure
+        // ============================================================
 
         stage('Terraform - Update Infrastructure') {
             steps {
@@ -436,6 +614,10 @@ Nexus Credentials Required
     }
 
 
+    // ================================================================
+    // Post Actions
+    // ================================================================
+
     post {
 
         always {
@@ -445,6 +627,9 @@ Nexus Credentials Required
                 rm -f terraform/tfplan
                 rm -f backend-ami-id.txt
                 rm -f sonar-url.txt
+                rm -f packer-subnet-id.txt
+                rm -f packer-sg-id.txt
+                rm -f backend-instance-profile.txt
             '''
         }
 
