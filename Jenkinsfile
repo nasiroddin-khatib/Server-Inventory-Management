@@ -45,16 +45,7 @@ pipeline {
                     sh '''
                         set -e
 
-                        terraform apply \
-                          -target=aws_security_group.sonarqube_sg \
-                          -target=aws_vpc_security_group_ingress_rule.sonarqube_http \
-                          -target=aws_vpc_security_group_egress_rule.sonarqube_all_outbound \
-                          -target=aws_iam_role.sonarqube_role \
-                          -target=aws_iam_role_policy.sonarqube_secrets_access \
-                          -target=aws_iam_role_policy_attachment.sonarqube_ssm \
-                          -target=aws_iam_instance_profile.sonarqube_profile \
-                          -target=aws_instance.sonarqube \
-                          -auto-approve
+                        terraform apply -target=aws_security_group.sonarqube_sg -target=aws_vpc_security_group_ingress_rule.sonarqube_http -target=aws_vpc_security_group_egress_rule.sonarqube_all_outbound -target=aws_iam_role.sonarqube_role -target=aws_iam_role_policy.sonarqube_secrets_access -target=aws_iam_role_policy_attachment.sonarqube_ssm -target=aws_iam_instance_profile.sonarqube_profile -target=aws_instance.sonarqube -auto-approve
                     '''
                 }
             }
@@ -71,18 +62,7 @@ pipeline {
                     sh '''
                         set -e
 
-                        terraform apply \
-                          -target=aws_security_group.nexus_sg \
-                          -target=aws_vpc_security_group_ingress_rule.nexus_http \
-                          -target=aws_vpc_security_group_ingress_rule.nexus_https \
-                          -target=aws_vpc_security_group_ingress_rule.nexus_ssh \
-                          -target=aws_vpc_security_group_ingress_rule.nexus_from_jenkins \
-                          -target=aws_vpc_security_group_egress_rule.nexus_all_outbound \
-                          -target=aws_iam_role.nexus_role \
-                          -target=aws_iam_role_policy_attachment.nexus_ssm \
-                          -target=aws_iam_instance_profile.nexus_profile \
-                          -target=aws_instance.nexus \
-                          -auto-approve
+                        terraform apply -target=aws_security_group.nexus_sg -target=aws_vpc_security_group_ingress_rule.nexus_http -target=aws_vpc_security_group_ingress_rule.nexus_https -target=aws_vpc_security_group_ingress_rule.nexus_ssh -target=aws_vpc_security_group_ingress_rule.nexus_from_jenkins -target=aws_vpc_security_group_egress_rule.nexus_all_outbound -target=aws_iam_role.nexus_role -target=aws_iam_role_policy_attachment.nexus_ssm -target=aws_iam_instance_profile.nexus_profile -target=aws_instance.nexus -auto-approve
                     '''
                 }
             }
@@ -92,9 +72,8 @@ pipeline {
         // ============================================================
         // Terraform - RDS Infrastructure
         //
-        // IMPORTANT:
-        // RDS is created BEFORE application build/deployment stages.
-        // Terraform will wait until the RDS instance is available.
+        // RDS is created BEFORE application build/deployment.
+        // Terraform waits until the RDS instance becomes available.
         // ============================================================
 
         stage('Terraform - RDS Infrastructure') {
@@ -107,13 +86,7 @@ pipeline {
                         echo "Creating RDS PostgreSQL Infrastructure"
                         echo "======================================="
 
-                        terraform apply \
-                          -target=aws_db_subnet_group.db_subnet_group \
-                          -target=aws_security_group.rds_sg \
-                          -target=aws_vpc_security_group_ingress_rule.rds_from_backend \
-                          -target=aws_vpc_security_group_egress_rule.rds_all_outbound \
-                          -target=aws_db_instance.postgres \
-                          -auto-approve
+                        terraform apply -target=aws_db_subnet_group.db_subnet_group -target=aws_security_group.rds_sg -target=aws_vpc_security_group_ingress_rule.rds_from_backend -target=aws_vpc_security_group_egress_rule.rds_all_outbound -target=aws_db_instance.postgres -auto-approve
 
                         echo "======================================="
                         echo "RDS Infrastructure Created"
@@ -144,9 +117,7 @@ pipeline {
                     sh '''
                         set -e
 
-                        terraform apply \
-                          -target=local_file.backend_pom \
-                          -auto-approve
+                        terraform apply -target=local_file.backend_pom -auto-approve
 
                         if [ ! -f ../backend/pom.xml ]; then
                             echo "ERROR: backend/pom.xml was not generated."
@@ -313,6 +284,11 @@ Configure SonarQube in Jenkins:
 
         // ============================================================
         // Terraform - Base Infrastructure
+        //
+        // IMPORTANT:
+        // Packer outbound default rule is NOT targeted here because
+        // AWS Security Groups already provide the default outbound
+        // allow-all rule.
         // ============================================================
 
         stage('Terraform - Base Infrastructure') {
@@ -321,30 +297,7 @@ Configure SonarQube in Jenkins:
                     sh '''
                         set -e
 
-                        terraform apply \
-                          -target=aws_subnet.public_subnet_2 \
-                          -target=aws_subnet.private_subnet_1 \
-                          -target=aws_subnet.private_subnet_2 \
-                          -target=aws_eip.nat_eip \
-                          -target=aws_nat_gateway.nat_gateway \
-                          -target=aws_route_table.public_route_table \
-                          -target=aws_route_table.private_route_table \
-                          -target=aws_route_table_association.public_subnet_2 \
-                          -target=aws_route_table_association.private_subnet_1 \
-                          -target=aws_route_table_association.private_subnet_2 \
-                          -target=aws_security_group.packer_sg \
-                          -target=aws_vpc_security_group_ingress_rule.packer_ssh_from_jenkins \                          
-                          -target=aws_iam_role.backend_role \
-                          -target=aws_iam_role_policy_attachment.backend_ssm \
-                          -target=aws_iam_role_policy_attachment.backend_cloudwatch \
-                          -target=aws_iam_instance_profile.backend_instance_profile \
-                          -target=aws_s3_bucket.frontend \
-                          -target=aws_secretsmanager_secret.nexus_credentials \
-                          -target=aws_iam_role.nexus_role \
-                          -target=aws_iam_role_policy_attachment.nexus_ssm \
-                          -target=aws_iam_instance_profile.nexus_profile \
-                          -target=aws_instance.nexus \
-                          -auto-approve
+                        terraform apply -target=aws_subnet.public_subnet_2 -target=aws_subnet.private_subnet_1 -target=aws_subnet.private_subnet_2 -target=aws_eip.nat_eip -target=aws_nat_gateway.nat_gateway -target=aws_route_table.public_route_table -target=aws_route_table.private_route_table -target=aws_route_table_association.public_subnet_2 -target=aws_route_table_association.private_subnet_1 -target=aws_route_table_association.private_subnet_2 -target=aws_security_group.packer_sg -target=aws_vpc_security_group_ingress_rule.packer_ssh_from_jenkins -target=aws_iam_role.backend_role -target=aws_iam_role_policy_attachment.backend_ssm -target=aws_iam_role_policy_attachment.backend_cloudwatch -target=aws_iam_instance_profile.backend_instance_profile -target=aws_s3_bucket.frontend -target=aws_secretsmanager_secret.nexus_credentials -target=aws_iam_role.nexus_role -target=aws_iam_role_policy_attachment.nexus_ssm -target=aws_iam_instance_profile.nexus_profile -target=aws_instance.nexus -auto-approve
                     '''
                 }
             }
@@ -583,26 +536,14 @@ Nexus Credentials Required
                         echo "Validating Packer"
                         echo "======================================="
 
-                        packer validate \
-                          -var-file=terraform.pkrvars.hcl \
-                          -var "subnet_id=$SUBNET_ID" \
-                          -var "security_group_id=$SECURITY_GROUP_ID" \
-                          -var "backend_instance_profile_name=$BACKEND_INSTANCE_PROFILE" \
-                          -var "ssh_private_key_file=$PACKER_SSH_KEY" \
-                          .
+                        packer validate -var-file=terraform.pkrvars.hcl -var "subnet_id=$SUBNET_ID" -var "security_group_id=$SECURITY_GROUP_ID" -var "backend_instance_profile_name=$BACKEND_INSTANCE_PROFILE" -var "ssh_private_key_file=$PACKER_SSH_KEY" .
 
 
                         echo "======================================="
                         echo "Building Backend AMI"
                         echo "======================================="
 
-                        packer build \
-                          -var-file=terraform.pkrvars.hcl \
-                          -var "subnet_id=$SUBNET_ID" \
-                          -var "security_group_id=$SECURITY_GROUP_ID" \
-                          -var "backend_instance_profile_name=$BACKEND_INSTANCE_PROFILE" \
-                          -var "ssh_private_key_file=$PACKER_SSH_KEY" \
-                          .
+                        packer build -var-file=terraform.pkrvars.hcl -var "subnet_id=$SUBNET_ID" -var "security_group_id=$SECURITY_GROUP_ID" -var "backend_instance_profile_name=$BACKEND_INSTANCE_PROFILE" -var "ssh_private_key_file=$PACKER_SSH_KEY" .
 
 
                         echo "======================================="
@@ -648,13 +589,9 @@ Nexus Credentials Required
 
                         terraform validate
 
-                        terraform plan \
-                          -var="backend_ami_id=$AMI_ID" \
-                          -out=tfplan
+                        terraform plan -var="backend_ami_id=$AMI_ID" -out=tfplan
 
-                        terraform apply \
-                          -auto-approve \
-                          tfplan
+                        terraform apply -auto-approve tfplan
                     '''
                 }
             }
