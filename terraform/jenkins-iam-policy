@@ -1,35 +1,81 @@
 # ============================================================
-# Allow Jenkins to describe EC2 instances
+# Jenkins EC2 IAM Role
 # ============================================================
 
-resource "aws_iam_role_policy" "jenkins_ec2_describe" {
-  name = "jenkins-ec2-describe"
-  role = aws_iam_role.jenkins_role.id
+resource "aws_iam_role" "jenkins_role" {
+  name = "server-inventory-jenkins-role"
 
-  policy = jsonencode({
+  assume_role_policy = jsonencode({
     Version = "2012-10-17"
 
     Statement = [
       {
         Effect = "Allow"
 
-        Action = [
-          "ec2:DescribeInstances"
-        ]
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
 
-        Resource = "*"
+        Action = "sts:AssumeRole"
       }
     ]
   })
+
+  tags = {
+    Name      = "server-inventory-jenkins-role"
+    Project   = "Server-Inventory"
+    ManagedBy = "Terraform"
+  }
 }
 
-# ==========================================================
-# Terraform S3 Backend Policy
-# ==========================================================
 
-resource "aws_iam_policy" "jenkins_terraform_state" {
+# ============================================================
+# AWS Account Identity
+# ============================================================
 
-  name = "${var.project}-jenkins-terraform-state"
+data "aws_caller_identity" "current" {}
+
+
+# ============================================================
+# Jenkins EC2 Instance Profile
+# ============================================================
+
+resource "aws_iam_instance_profile" "jenkins_profile" {
+  name = "server-inventory-jenkins-profile"
+
+  role = aws_iam_role.jenkins_role.name
+}
+
+
+# ============================================================
+# SSM Access for Jenkins EC2
+# ============================================================
+
+resource "aws_iam_role_policy_attachment" "jenkins_ssm" {
+  role = aws_iam_role.jenkins_role.name
+
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
+
+# ============================================================
+# Jenkins Pipeline IAM Policy
+#
+# This policy is used by:
+#
+# Jenkins
+#   |
+#   +-- Terraform
+#   +-- AWS CLI
+#   +-- Packer
+#
+# It contains the AWS permissions required by this project.
+# ============================================================
+
+resource "aws_iam_policy" "jenkins_pipeline_permissions" {
+
+  name        = "${var.project}-jenkins-pipeline-permissions"
+  description = "Permissions required by Jenkins to run the Server Inventory Terraform, AWS CLI and Packer pipeline."
 
   policy = jsonencode({
 
@@ -37,17 +83,333 @@ resource "aws_iam_policy" "jenkins_terraform_state" {
 
     Statement = [
 
+      # ======================================================
+      # STS
+      #
+      # Terraform/provider may call GetCallerIdentity.
+      # ======================================================
+
       {
+        Sid    = "JenkinsCallerIdentity"
         Effect = "Allow"
 
         Action = [
-          "s3:ListBucket"
+          "sts:GetCallerIdentity"
+        ]
+
+        Resource = "*"
+      },
+
+
+      # ======================================================
+      # EC2 / VPC / Packer
+      #
+      # Jenkins:
+      # - reads EC2 information
+      # - Terraform manages VPC resources
+      # - Terraform manages EC2 instances
+      # - Packer launches temporary EC2 build instances
+      # - Packer creates AMIs
+      # - Packer terminates build instances
+      # ======================================================
+
+      {
+        Sid    = "JenkinsEC2VPCPacker"
+        Effect = "Allow"
+
+        Action = [
+
+          # Describe / read
+          "ec2:Describe*",
+          "ec2:Get*",
+
+          # Instances
+          "ec2:RunInstances",
+          "ec2:TerminateInstances",
+          "ec2:StartInstances",
+          "ec2:StopInstances",
+          "ec2:RebootInstances",
+
+          # AMIs / snapshots
+          "ec2:CreateImage",
+          "ec2:RegisterImage",
+          "ec2:DeregisterImage",
+          "ec2:CopyImage",
+          "ec2:ModifyImageAttribute",
+          "ec2:ResetImageAttribute",
+          "ec2:DeleteSnapshot",
+
+          # Tags
+          "ec2:CreateTags",
+          "ec2:DeleteTags",
+
+          # VPC
+          "ec2:CreateVpc",
+          "ec2:DeleteVpc",
+          "ec2:ModifyVpcAttribute",
+
+          "ec2:CreateSubnet",
+          "ec2:DeleteSubnet",
+          "ec2:ModifySubnetAttribute",
+
+          "ec2:CreateRouteTable",
+          "ec2:DeleteRouteTable",
+          "ec2:AssociateRouteTable",
+          "ec2:DisassociateRouteTable",
+
+          "ec2:CreateRoute",
+          "ec2:ReplaceRoute",
+          "ec2:DeleteRoute",
+
+          "ec2:CreateInternetGateway",
+          "ec2:AttachInternetGateway",
+          "ec2:DetachInternetGateway",
+          "ec2:DeleteInternetGateway",
+
+          # NAT Gateway
+          "ec2:CreateNatGateway",
+          "ec2:DeleteNatGateway",
+
+          # Elastic IP
+          "ec2:AllocateAddress",
+          "ec2:ReleaseAddress",
+          "ec2:AssociateAddress",
+          "ec2:DisassociateAddress",
+
+          # Security Groups
+          "ec2:CreateSecurityGroup",
+          "ec2:DeleteSecurityGroup",
+          "ec2:AuthorizeSecurityGroupIngress",
+          "ec2:AuthorizeSecurityGroupEgress",
+          "ec2:RevokeSecurityGroupIngress",
+          "ec2:RevokeSecurityGroupEgress",
+
+          # Network interfaces
+          "ec2:CreateNetworkInterface",
+          "ec2:DeleteNetworkInterface",
+          "ec2:ModifyNetworkInterfaceAttribute",
+          "ec2:AttachNetworkInterface",
+          "ec2:DetachNetworkInterface",
+
+          # IAM instance profiles on EC2
+          "ec2:AssociateIamInstanceProfile",
+          "ec2:DisassociateIamInstanceProfile",
+          "ec2:ReplaceIamInstanceProfileAssociation",
+
+          # Launch Templates
+          "ec2:CreateLaunchTemplate",
+          "ec2:CreateLaunchTemplateVersion",
+          "ec2:ModifyLaunchTemplate",
+          "ec2:DeleteLaunchTemplate",
+          "ec2:DeleteLaunchTemplateVersions"
+        ]
+
+        Resource = "*"
+
+        Condition = {
+          StringEquals = {
+            "aws:RequestedRegion" = var.aws_region
+          }
+        }
+      },
+
+
+      # ======================================================
+      # IAM READ
+      #
+      # Terraform needs to inspect roles, profiles and policies.
+      # ======================================================
+
+      {
+        Sid    = "JenkinsIAMRead"
+        Effect = "Allow"
+
+        Action = [
+          "iam:Get*",
+          "iam:List*"
+        ]
+
+        Resource = "*"
+      },
+
+
+      # ======================================================
+      # IAM PROJECT ROLES
+      #
+      # Terraform creates/manages the roles used by:
+      #
+      # - Jenkins
+      # - Backend
+      # - SonarQube
+      # - Nexus
+      # - Monitoring
+      #
+      # Restrict management to server-inventory roles.
+      # ======================================================
+
+      {
+        Sid    = "JenkinsIAMRoleManagement"
+        Effect = "Allow"
+
+        Action = [
+          "iam:CreateRole",
+          "iam:DeleteRole",
+          "iam:UpdateRole",
+          "iam:UpdateAssumeRolePolicy",
+          "iam:UpdateRoleDescription",
+
+          "iam:TagRole",
+          "iam:UntagRole",
+
+          "iam:AttachRolePolicy",
+          "iam:DetachRolePolicy",
+
+          "iam:PutRolePolicy",
+          "iam:DeleteRolePolicy",
+
+          "iam:CreateInstanceProfile",
+          "iam:DeleteInstanceProfile",
+          "iam:AddRoleToInstanceProfile",
+          "iam:RemoveRoleFromInstanceProfile"
+        ]
+
+        Resource = [
+          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/server-inventory-*",
+          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:instance-profile/server-inventory-*"
+        ]
+      },
+
+
+      # ======================================================
+      # IAM POLICY MANAGEMENT
+      #
+      # Terraform may create custom policies used by:
+      #
+      # - Backend
+      # - SonarQube
+      # - Nexus
+      # - Monitoring
+      # - Jenkins
+      # ======================================================
+
+      {
+        Sid    = "JenkinsIAMPolicyManagement"
+        Effect = "Allow"
+
+        Action = [
+          "iam:CreatePolicy",
+          "iam:DeletePolicy",
+          "iam:CreatePolicyVersion",
+          "iam:DeletePolicyVersion",
+          "iam:SetDefaultPolicyVersion"
+        ]
+
+        Resource = [
+          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/server-inventory-*",
+          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/Server-Inventory-*"
+        ]
+      },
+
+
+      # ======================================================
+      # IAM SERVICE-LINKED ROLES
+      #
+      # Required when AWS services such as Auto Scaling /
+      # Load Balancing create their service-linked role.
+      # ======================================================
+
+      {
+        Sid    = "JenkinsServiceLinkedRoles"
+        Effect = "Allow"
+
+        Action = [
+          "iam:CreateServiceLinkedRole"
+        ]
+
+        Resource = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/aws-service-role/*"
+
+        Condition = {
+          StringLike = {
+            "iam:AWSServiceName" = [
+              "autoscaling.amazonaws.com",
+              "elasticloadbalancing.amazonaws.com",
+              "events.amazonaws.com",
+              "spot.amazonaws.com"
+            ]
+          }
+        }
+      },
+
+
+      # ======================================================
+      # IAM PASS ROLE
+      #
+      # Jenkins/Packer/Terraform launches EC2 instances with
+      # project IAM instance profiles.
+      #
+      # IMPORTANT:
+      # Do NOT use Resource = "*" here.
+      # ======================================================
+
+      {
+        Sid    = "JenkinsPassProjectRoles"
+        Effect = "Allow"
+
+        Action = [
+          "iam:GetRole",
+          "iam:PassRole"
+        ]
+
+        Resource = [
+          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/server-inventory-*"
+        ]
+
+        Condition = {
+          StringEquals = {
+            "iam:PassedToService" = "ec2.amazonaws.com"
+          }
+        }
+      },
+
+
+      # ======================================================
+      # S3 TERRAFORM STATE
+      #
+      # Bucket:
+      # terraform-state-575458732395-ap-south-1-an
+      #
+      # State:
+      # server-inventory/terraform.tfstate
+      #
+      # Lock:
+      # server-inventory/terraform.tfstate.tflock
+      # ======================================================
+
+      {
+        Sid    = "JenkinsTerraformStateBucket"
+        Effect = "Allow"
+
+        Action = [
+          "s3:ListBucket",
+          "s3:GetBucketLocation",
+          "s3:GetBucketVersioning"
         ]
 
         Resource = "arn:aws:s3:::terraform-state-575458732395-ap-south-1-an"
+
+        Condition = {
+          StringLike = {
+            "s3:prefix" = [
+              "server-inventory",
+              "server-inventory/*"
+            ]
+          }
+        }
       },
 
+
       {
+        Sid    = "JenkinsTerraformStateObjects"
         Effect = "Allow"
 
         Action = [
@@ -60,19 +422,578 @@ resource "aws_iam_policy" "jenkins_terraform_state" {
           "arn:aws:s3:::terraform-state-575458732395-ap-south-1-an/server-inventory/terraform.tfstate",
           "arn:aws:s3:::terraform-state-575458732395-ap-south-1-an/server-inventory/terraform.tfstate.tflock"
         ]
+      },
+
+
+      # ======================================================
+      # S3 FRONTEND BUCKET
+      #
+      # Jenkins/Terraform manages the frontend bucket.
+      #
+      # Resource is restricted to the actual Terraform bucket.
+      # ======================================================
+
+      {
+        Sid    = "JenkinsFrontendBucket"
+        Effect = "Allow"
+
+        Action = [
+          "s3:*"
+        ]
+
+        Resource = [
+          aws_s3_bucket.frontend.arn,
+          "${aws_s3_bucket.frontend.arn}/*"
+        ]
+      },
+
+
+      # ======================================================
+      # Secrets Manager
+      #
+      # Jenkins reads:
+      #
+      # server-inventory/nexus-credentials
+      #
+      # Terraform also creates/manages this secret.
+      # ======================================================
+
+      {
+        Sid    = "JenkinsNexusSecret"
+        Effect = "Allow"
+
+        Action = [
+          "secretsmanager:CreateSecret",
+          "secretsmanager:DeleteSecret",
+          "secretsmanager:DescribeSecret",
+          "secretsmanager:GetSecretValue",
+          "secretsmanager:PutSecretValue",
+          "secretsmanager:UpdateSecret",
+          "secretsmanager:UpdateSecretVersionStage",
+          "secretsmanager:ListSecretVersionIds",
+          "secretsmanager:GetResourcePolicy",
+          "secretsmanager:PutResourcePolicy",
+          "secretsmanager:DeleteResourcePolicy",
+          "secretsmanager:TagResource",
+          "secretsmanager:UntagResource"
+        ]
+
+        Resource = "arn:aws:secretsmanager:${var.aws_region}:${data.aws_caller_identity.current.account_id}:secret:server-inventory/nexus-credentials-*"
+      },
+
+
+      # ======================================================
+      # RDS
+      #
+      # Terraform creates and manages PostgreSQL RDS.
+      # ======================================================
+
+      {
+        Sid    = "JenkinsRDS"
+        Effect = "Allow"
+
+        Action = [
+          "rds:Describe*",
+          "rds:ListTagsForResource",
+
+          "rds:CreateDBInstance",
+          "rds:ModifyDBInstance",
+          "rds:DeleteDBInstance",
+
+          "rds:CreateDBSubnetGroup",
+          "rds:ModifyDBSubnetGroup",
+          "rds:DeleteDBSubnetGroup",
+
+          "rds:CreateDBParameterGroup",
+          "rds:ModifyDBParameterGroup",
+          "rds:DeleteDBParameterGroup",
+
+          "rds:CreateDBSnapshot",
+          "rds:DeleteDBSnapshot",
+
+          "rds:AddTagsToResource",
+          "rds:RemoveTagsFromResource"
+        ]
+
+        Resource = "*"
+
+        Condition = {
+          StringEquals = {
+            "aws:RequestedRegion" = var.aws_region
+          }
+        }
+      },
+
+
+      # ======================================================
+      # Application Load Balancer
+      # ======================================================
+
+      {
+        Sid    = "JenkinsApplicationLoadBalancer"
+        Effect = "Allow"
+
+        Action = [
+          "elasticloadbalancing:Describe*",
+
+          "elasticloadbalancing:CreateLoadBalancer",
+          "elasticloadbalancing:DeleteLoadBalancer",
+          "elasticloadbalancing:ModifyLoadBalancerAttributes",
+          "elasticloadbalancing:SetSecurityGroups",
+          "elasticloadbalancing:SetSubnets",
+
+          "elasticloadbalancing:CreateTargetGroup",
+          "elasticloadbalancing:DeleteTargetGroup",
+          "elasticloadbalancing:ModifyTargetGroup",
+          "elasticloadbalancing:ModifyTargetGroupAttributes",
+
+          "elasticloadbalancing:RegisterTargets",
+          "elasticloadbalancing:DeregisterTargets",
+
+          "elasticloadbalancing:CreateListener",
+          "elasticloadbalancing:DeleteListener",
+          "elasticloadbalancing:ModifyListener",
+
+          "elasticloadbalancing:CreateRule",
+          "elasticloadbalancing:DeleteRule",
+          "elasticloadbalancing:ModifyRule",
+
+          "elasticloadbalancing:AddTags",
+          "elasticloadbalancing:RemoveTags"
+        ]
+
+        Resource = "*"
+
+        Condition = {
+          StringEquals = {
+            "aws:RequestedRegion" = var.aws_region
+          }
+        }
+      },
+
+
+      # ======================================================
+      # Auto Scaling
+      # ======================================================
+
+      {
+        Sid    = "JenkinsAutoScaling"
+        Effect = "Allow"
+
+        Action = [
+          "autoscaling:Describe*",
+
+          "autoscaling:CreateAutoScalingGroup",
+          "autoscaling:UpdateAutoScalingGroup",
+          "autoscaling:DeleteAutoScalingGroup",
+
+          "autoscaling:SetDesiredCapacity",
+          "autoscaling:UpdateAutoScalingGroup",
+
+          "autoscaling:PutScalingPolicy",
+          "autoscaling:DeletePolicy",
+
+          "autoscaling:PutScheduledUpdateGroupAction",
+          "autoscaling:DeleteScheduledAction",
+
+          "autoscaling:AttachLoadBalancerTargetGroups",
+          "autoscaling:DetachLoadBalancerTargetGroups",
+
+          "autoscaling:CreateOrUpdateTags",
+          "autoscaling:DeleteTags"
+        ]
+
+        Resource = "*"
+      },
+
+
+      # ======================================================
+      # CloudWatch
+      #
+      # Terraform monitoring/alarm resources.
+      # ======================================================
+
+      {
+        Sid    = "JenkinsCloudWatch"
+        Effect = "Allow"
+
+        Action = [
+          "cloudwatch:Describe*",
+          "cloudwatch:Get*",
+          "cloudwatch:List*",
+
+          "cloudwatch:PutMetricAlarm",
+          "cloudwatch:DeleteAlarms",
+          "cloudwatch:PutDashboard",
+          "cloudwatch:DeleteDashboards"
+        ]
+
+        Resource = "*"
+
+        Condition = {
+          StringEquals = {
+            "aws:RequestedRegion" = var.aws_region
+          }
+        }
+      },
+
+
+      # ======================================================
+      # CloudWatch Logs
+      # ======================================================
+
+      {
+        Sid    = "JenkinsCloudWatchLogs"
+        Effect = "Allow"
+
+        Action = [
+          "logs:Describe*",
+          "logs:Get*",
+          "logs:List*",
+
+          "logs:CreateLogGroup",
+          "logs:DeleteLogGroup",
+
+          "logs:PutRetentionPolicy",
+          "logs:DeleteRetentionPolicy",
+
+          "logs:TagResource",
+          "logs:UntagResource"
+        ]
+
+        Resource = "*"
+
+        Condition = {
+          StringEquals = {
+            "aws:RequestedRegion" = var.aws_region
+          }
+        }
+      },
+
+
+      # ======================================================
+      # SNS
+      #
+      # Used for notification resources if present in Terraform.
+      # ======================================================
+
+      {
+        Sid    = "JenkinsSNS"
+        Effect = "Allow"
+
+        Action = [
+          "sns:CreateTopic",
+          "sns:DeleteTopic",
+          "sns:GetTopicAttributes",
+          "sns:SetTopicAttributes",
+
+          "sns:Subscribe",
+          "sns:Unsubscribe",
+
+          "sns:ListSubscriptions",
+          "sns:ListSubscriptionsByTopic",
+          "sns:ListTopics",
+
+          "sns:Publish",
+
+          "sns:TagResource",
+          "sns:UntagResource",
+          "sns:ListTagsForResource"
+        ]
+
+        Resource = "*"
+      },
+
+
+      # ======================================================
+      # EventBridge
+      # ======================================================
+
+      {
+        Sid    = "JenkinsEventBridge"
+        Effect = "Allow"
+
+        Action = [
+          "events:Describe*",
+          "events:List*",
+
+          "events:PutRule",
+          "events:DeleteRule",
+
+          "events:PutTargets",
+          "events:RemoveTargets",
+
+          "events:EnableRule",
+          "events:DisableRule",
+
+          "events:TagResource",
+          "events:UntagResource"
+        ]
+
+        Resource = "*"
+
+        Condition = {
+          StringEquals = {
+            "aws:RequestedRegion" = var.aws_region
+          }
+        }
+      },
+
+
+      # ======================================================
+      # Route 53
+      #
+      # Route 53 is global, therefore no region condition.
+      # ======================================================
+
+      {
+        Sid    = "JenkinsRoute53"
+        Effect = "Allow"
+
+        Action = [
+          "route53:GetHostedZone",
+          "route53:ListHostedZones",
+          "route53:ListResourceRecordSets",
+
+          "route53:ChangeResourceRecordSets"
+        ]
+
+        Resource = "*"
+      },
+
+
+      # ======================================================
+      # ACM
+      #
+      # Used if the Terraform configuration manages HTTPS
+      # certificates.
+      # ======================================================
+
+      {
+        Sid    = "JenkinsACM"
+        Effect = "Allow"
+
+        Action = [
+          "acm:DescribeCertificate",
+          "acm:ListCertificates",
+          "acm:GetCertificate",
+
+          "acm:RequestCertificate",
+          "acm:DeleteCertificate",
+          "acm:AddTagsToCertificate",
+          "acm:RemoveTagsFromCertificate"
+        ]
+
+        Resource = "*"
+
+        Condition = {
+          StringEquals = {
+            "aws:RequestedRegion" = var.aws_region
+          }
+        }
+      },
+
+
+      # ======================================================
+      # CloudFront
+      #
+      # CloudFront is global, therefore no region condition.
+      # ======================================================
+
+      {
+        Sid    = "JenkinsCloudFront"
+        Effect = "Allow"
+
+        Action = [
+          "cloudfront:Get*",
+          "cloudfront:List*",
+
+          "cloudfront:CreateDistribution",
+          "cloudfront:UpdateDistribution",
+          "cloudfront:DeleteDistribution",
+
+          "cloudfront:CreateInvalidation",
+          "cloudfront:TagResource",
+          "cloudfront:UntagResource"
+        ]
+
+        Resource = "*"
+      },
+
+
+      # ======================================================
+      # KMS READ / DECRYPT
+      #
+      # Needed if a customer-managed KMS key is used by any
+      # Terraform-managed encrypted resource/secret.
+      # ======================================================
+
+      {
+        Sid    = "JenkinsKMS"
+        Effect = "Allow"
+
+        Action = [
+          "kms:DescribeKey",
+          "kms:GetKeyPolicy",
+          "kms:ListAliases",
+          "kms:ListKeys",
+          "kms:Decrypt",
+          "kms:Encrypt",
+          "kms:GenerateDataKey"
+        ]
+
+        Resource = "*"
+
+        Condition = {
+          StringEquals = {
+            "aws:RequestedRegion" = var.aws_region
+          }
+        }
       }
+
     ]
   })
 }
 
 
-# ==========================================================
-# Attach Terraform S3 Backend Policy to Jenkins Role
-# ==========================================================
+# ============================================================
+# Attach Jenkins Pipeline Policy
+# ============================================================
 
-resource "aws_iam_role_policy_attachment" "jenkins_terraform_state" {
+resource "aws_iam_role_policy_attachment" "jenkins_pipeline_permissions" {
 
   role = aws_iam_role.jenkins_role.name
 
-  policy_arn = aws_iam_policy.jenkins_terraform_state.arn
+  policy_arn = aws_iam_policy.jenkins_pipeline_permissions.arn
+}
+
+
+# ============================================================
+# Jenkins EC2 Instance
+# ============================================================
+
+resource "aws_instance" "jenkins" {
+
+  ami           = "ami-0ac7b260cf76d8865"
+  instance_type = "c7i-flex.large"
+
+  subnet_id = aws_subnet.public_subnet_1.id
+
+  vpc_security_group_ids = [
+    aws_security_group.jenkins_sg.id
+  ]
+
+  associate_public_ip_address = true
+
+  key_name = "mykey"
+
+  iam_instance_profile = aws_iam_instance_profile.jenkins_profile.name
+
+
+  # ==========================================================
+  # Root Volume - 20 GB
+  # ==========================================================
+
+  root_block_device {
+
+    volume_size = 20
+
+    volume_type = "gp3"
+
+    delete_on_termination = true
+  }
+
+
+  # ==========================================================
+  # Jenkins Server Bootstrap
+  # ==========================================================
+
+  user_data = <<-EOF
+#!/bin/bash
+
+set -e
+
+# --------------------------------------------------------
+# Update packages
+# --------------------------------------------------------
+
+dnf update -y
+
+
+# --------------------------------------------------------
+# Install Git and Docker
+# --------------------------------------------------------
+
+dnf install -y git docker
+
+
+# --------------------------------------------------------
+# Start Docker
+# --------------------------------------------------------
+
+systemctl enable --now docker
+
+
+# --------------------------------------------------------
+# Start SSM Agent
+# --------------------------------------------------------
+
+systemctl enable --now amazon-ssm-agent
+
+
+# --------------------------------------------------------
+# Clone Server Inventory repository
+# --------------------------------------------------------
+
+cd /opt
+
+git clone https://github.com/nasiroddin-khatib/Server-Inventory-Management.git
+
+
+# --------------------------------------------------------
+# Go to project directory
+# --------------------------------------------------------
+
+cd /opt/Server-Inventory-Management
+
+
+# --------------------------------------------------------
+# Build custom Jenkins image
+# --------------------------------------------------------
+
+docker build -t custom-jenkins:latest .
+
+
+# --------------------------------------------------------
+# Create Jenkins container
+# --------------------------------------------------------
+
+docker run -d \
+  --name custom-jenkins \
+  --restart unless-stopped \
+  -p 8080:8080 \
+  -p 50000:50000 \
+  -v jenkins_home:/var/jenkins_home \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v /usr/bin/docker:/usr/bin/docker \
+  -u root \
+  custom-jenkins:latest
+
+EOF
+
+
+  # ==========================================================
+  # Tags
+  # ==========================================================
+
+  tags = {
+
+    Name = "Server-Inventory-Jenkins"
+
+    Project = "Server-Inventory"
+
+    Environment = "Production"
+
+    ManagedBy = "Terraform"
+  }
 }
