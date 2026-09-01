@@ -55,7 +55,7 @@ resource "aws_iam_instance_profile" "jenkins_profile" {
 
 resource "aws_instance" "jenkins" {
   ami           = "ami-0ac7b260cf76d8865"
-  instance_type = "t3.micro"
+  instance_type = "c7i-flex.large"
 
   subnet_id = aws_subnet.public_subnet_1.id
 
