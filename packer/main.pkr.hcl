@@ -12,48 +12,6 @@ packer {
 }
 
 
-############################################
-# Variables
-############################################
-
-variable "aws_region" {
-  type = string
-}
-
-variable "instance_type" {
-  type = string
-}
-
-variable "key_name" {
-  type = string
-}
-
-variable "ssh_username" {
-  type = string
-}
-
-variable "ssh_private_key_file" {
-  type      = string
-  sensitive = true
-}
-
-variable "subnet_id" {
-  type = string
-}
-
-variable "security_group_id" {
-  type = string
-}
-
-variable "backend_instance_profile_name" {
-  type = string
-}
-
-variable "rds_secret_arn" {
-  type      = string
-  sensitive = true
-}
-
 
 ############################################
 # Latest Amazon Linux 2023 AMI
