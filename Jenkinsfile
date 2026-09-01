@@ -98,6 +98,9 @@ pipeline {
                         echo "RDS Database Name:"
                         terraform output -raw rds_database_name
 
+                        echo "RDS Secret ARN:"
+                        terraform output -raw rds_master_secret_arn
+
                         echo "======================================="
                         echo "RDS is now available"
                         echo "======================================="
@@ -297,7 +300,7 @@ Configure SonarQube in Jenkins:
                     sh '''
                         set -e
 
-                        terraform apply -target=aws_subnet.public_subnet_2 -target=aws_subnet.private_subnet_1 -target=aws_subnet.private_subnet_2 -target=aws_eip.nat_eip -target=aws_nat_gateway.nat_gateway -target=aws_route_table.public_route_table -target=aws_route_table.private_route_table -target=aws_route_table_association.public_subnet_2 -target=aws_route_table_association.private_subnet_1 -target=aws_route_table_association.private_subnet_2 -target=aws_security_group.packer_sg -target=aws_vpc_security_group_ingress_rule.packer_ssh_from_jenkins -target=aws_iam_role.backend_role -target=aws_iam_role_policy_attachment.backend_ssm -target=aws_iam_role_policy_attachment.backend_cloudwatch -target=aws_iam_instance_profile.backend_instance_profile -target=aws_s3_bucket.frontend -target=aws_secretsmanager_secret.nexus_credentials -target=aws_iam_role.nexus_role -target=aws_iam_role_policy_attachment.nexus_ssm -target=aws_iam_instance_profile.nexus_profile -target=aws_instance.nexus -auto-approve
+                        terraform apply -target=aws_subnet.public_subnet_2 -target=aws_subnet.private_subnet_1 -target=aws_subnet.private_subnet_2 -target=aws_eip.nat_eip -target=aws_nat_gateway.nat_gateway -target=aws_route_table.public_route_table -target=aws_route_table.private_route_table -target=aws_route_table_association.public_subnet_2 -target=aws_route_table_association.private_subnet_1 -target=aws_route_table_association.private_subnet_2 -target=aws_security_group.packer_sg -target=aws_vpc_security_group_ingress_rule.packer_ssh_from_jenkins -target=aws_iam_role.backend_role -target=aws_iam_role_policy_attachment.backend_ssm -target=aws_iam_role_policy_attachment.backend_cloudwatch -target=aws_iam_role_policy.backend_rds_secret_access -target=aws_iam_instance_profile.backend_instance_profile -target=aws_s3_bucket.frontend -target=aws_secretsmanager_secret.nexus_credentials -target=aws_iam_role.nexus_role -target=aws_iam_role_policy_attachment.nexus_ssm -target=aws_iam_instance_profile.nexus_profile -target=aws_instance.nexus -auto-approve
                     '''
                 }
             }
@@ -450,6 +453,13 @@ Nexus Credentials Required
 
                     BACKEND_INSTANCE_PROFILE=$(terraform output -raw backend_instance_profile)
 
+                    RDS_ENDPOINT=$(terraform output -raw rds_endpoint)
+
+                    RDS_DATABASE_NAME=$(terraform output -raw rds_database_name)
+
+                    RDS_SECRET_ARN=$(terraform output -raw rds_master_secret_arn)
+
+
                     if [ -z "$SUBNET_ID" ]; then
                         echo "ERROR: Public subnet ID is empty."
                         exit 1
@@ -465,6 +475,22 @@ Nexus Credentials Required
                         exit 1
                     fi
 
+                    if [ -z "$RDS_ENDPOINT" ]; then
+                        echo "ERROR: RDS endpoint is empty."
+                        exit 1
+                    fi
+
+                    if [ -z "$RDS_DATABASE_NAME" ]; then
+                        echo "ERROR: RDS database name is empty."
+                        exit 1
+                    fi
+
+                    if [ -z "$RDS_SECRET_ARN" ]; then
+                        echo "ERROR: RDS secret ARN is empty."
+                        exit 1
+                    fi
+
+
                     cd ..
 
                     echo "$SUBNET_ID" > packer-subnet-id.txt
@@ -473,7 +499,19 @@ Nexus Credentials Required
 
                     echo "$BACKEND_INSTANCE_PROFILE" > backend-instance-profile.txt
 
+                    echo "$RDS_ENDPOINT" > rds-endpoint.txt
+
+                    echo "$RDS_DATABASE_NAME" > rds-database-name.txt
+
+                    echo "$RDS_SECRET_ARN" > rds-secret-arn.txt
+
+                    echo "======================================="
                     echo "Terraform outputs successfully retrieved."
+                    echo "======================================="
+
+                    echo "RDS endpoint retrieved."
+                    echo "RDS database name retrieved."
+                    echo "RDS secret ARN retrieved."
                 '''
             }
         }
@@ -515,6 +553,8 @@ Nexus Credentials Required
 
                         BACKEND_INSTANCE_PROFILE=$(cat ../backend-instance-profile.txt)
 
+                        RDS_SECRET_ARN=$(cat ../rds-secret-arn.txt)
+
 
                         if [ -z "$SUBNET_ID" ]; then
                             echo "ERROR: Subnet ID is empty."
@@ -531,19 +571,24 @@ Nexus Credentials Required
                             exit 1
                         fi
 
+                        if [ -z "$RDS_SECRET_ARN" ]; then
+                            echo "ERROR: RDS Secret ARN is empty."
+                            exit 1
+                        fi
+
 
                         echo "======================================="
                         echo "Validating Packer"
                         echo "======================================="
 
-                        packer validate -var-file=terraform.pkrvars.hcl -var "subnet_id=$SUBNET_ID" -var "security_group_id=$SECURITY_GROUP_ID" -var "backend_instance_profile_name=$BACKEND_INSTANCE_PROFILE" -var "ssh_private_key_file=$PACKER_SSH_KEY" .
+                        packer validate -var-file=terraform.pkrvars.hcl -var "subnet_id=$SUBNET_ID" -var "security_group_id=$SECURITY_GROUP_ID" -var "backend_instance_profile_name=$BACKEND_INSTANCE_PROFILE" -var "rds_secret_arn=$RDS_SECRET_ARN" -var "ssh_private_key_file=$PACKER_SSH_KEY" .
 
 
                         echo "======================================="
                         echo "Building Backend AMI"
                         echo "======================================="
 
-                        packer build -var-file=terraform.pkrvars.hcl -var "subnet_id=$SUBNET_ID" -var "security_group_id=$SECURITY_GROUP_ID" -var "backend_instance_profile_name=$BACKEND_INSTANCE_PROFILE" -var "ssh_private_key_file=$PACKER_SSH_KEY" .
+                        packer build -var-file=terraform.pkrvars.hcl -var "subnet_id=$SUBNET_ID" -var "security_group_id=$SECURITY_GROUP_ID" -var "backend_instance_profile_name=$BACKEND_INSTANCE_PROFILE" -var "rds_secret_arn=$RDS_SECRET_ARN" -var "ssh_private_key_file=$PACKER_SSH_KEY" .
 
 
                         echo "======================================="
@@ -615,6 +660,9 @@ Nexus Credentials Required
                 rm -f packer-subnet-id.txt
                 rm -f packer-sg-id.txt
                 rm -f backend-instance-profile.txt
+                rm -f rds-endpoint.txt
+                rm -f rds-database-name.txt
+                rm -f rds-secret-arn.txt
             '''
         }
 
