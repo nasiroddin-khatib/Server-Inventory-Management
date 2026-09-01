@@ -59,8 +59,6 @@ variable "backend_instance_profile_name" {
 }
 
 
-
-
 ############################################
 # Existing Public Subnet
 ############################################
@@ -78,4 +76,15 @@ variable "subnet_id" {
 variable "security_group_id" {
   description = "Security Group ID used by Packer build instance"
   type        = string
+}
+
+
+############################################
+# RDS Master Secret
+############################################
+
+variable "rds_secret_arn" {
+  description = "ARN of the AWS-managed RDS master credentials secret"
+  type        = string
+  sensitive   = true
 }
