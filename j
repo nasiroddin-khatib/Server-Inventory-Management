@@ -36,6 +36,88 @@ pipeline {
 
 
         // ============================================================
+        // IMPORTANT
+        //
+        // Jenkins itself is NOT created here.
+        //
+        // Jenkins EC2 + Jenkins IAM Role + Jenkins Instance Profile
+        // are already created manually using the temporary bootstrap
+        // terraform apply command.
+        // ============================================================
+
+
+        // ============================================================
+        // Terraform - RDS Infrastructure
+        //
+        // RDS MUST EXIST before the application is built/deployed.
+        //
+        // Terraform will also create the required dependencies:
+        // - Private subnets
+        // - RDS subnet group
+        // - RDS security group
+        // - RDS ingress rule
+        // - PostgreSQL RDS instance
+        //
+        // manage_master_user_password = true in the RDS resource
+        // causes AWS to create/manage the master credentials secret.
+        // ============================================================
+
+        stage('Terraform - RDS Infrastructure') {
+            steps {
+                dir('terraform') {
+                    sh '''
+                        set -e
+
+                        echo "======================================="
+                        echo "Creating RDS PostgreSQL Infrastructure"
+                        echo "======================================="
+
+                        terraform apply \
+                          -target=aws_subnet.private_subnet_1 \
+                          -target=aws_subnet.private_subnet_2 \
+                          -target=aws_security_group.backend_sg \
+                          -target=aws_security_group.rds_sg \
+                          -target=aws_vpc_security_group_ingress_rule.rds_from_backend \
+                          -target=aws_vpc_security_group_egress_rule.rds_all_outbound \
+                          -target=aws_db_subnet_group.db_subnet_group \
+                          -target=aws_db_instance.postgres \
+                          -auto-approve
+
+                        echo "======================================="
+                        echo "Waiting for RDS to become AVAILABLE"
+                        echo "======================================="
+
+                        DB_IDENTIFIER=$(terraform output -raw rds_identifier 2>/dev/null || echo "server-inventory")
+
+                        aws rds wait db-instance-available \
+                          --db-instance-identifier "$DB_IDENTIFIER"
+
+                        echo "======================================="
+                        echo "RDS IS AVAILABLE"
+                        echo "======================================="
+
+                        echo "RDS Endpoint:"
+                        terraform output -raw rds_endpoint || true
+
+                        echo ""
+                        echo "RDS Database Name:"
+                        terraform output -raw rds_database_name || true
+
+                        echo ""
+                        echo "RDS Secret ARN:"
+                        terraform output -raw rds_master_secret_arn || true
+
+                        echo ""
+                        echo "======================================="
+                        echo "RDS Infrastructure Ready"
+                        echo "======================================="
+                    '''
+                }
+            }
+        }
+
+
+        // ============================================================
         // Terraform - SonarQube Infrastructure
         // ============================================================
 
@@ -83,50 +165,6 @@ pipeline {
                           -target=aws_iam_instance_profile.nexus_profile \
                           -target=aws_instance.nexus \
                           -auto-approve
-                    '''
-                }
-            }
-        }
-
-
-        // ============================================================
-        // Terraform - RDS Infrastructure
-        //
-        // RDS is created BEFORE application build/deployment.
-        // Terraform waits until the RDS instance becomes available.
-        // ============================================================
-
-        stage('Terraform - RDS Infrastructure') {
-            steps {
-                dir('terraform') {
-                    sh '''
-                        set -e
-
-                        echo "======================================="
-                        echo "Creating RDS PostgreSQL Infrastructure"
-                        echo "======================================="
-
-                        terraform apply \
-                          -target=aws_db_subnet_group.db_subnet_group \
-                          -target=aws_security_group.rds_sg \
-                          -target=aws_vpc_security_group_ingress_rule.rds_from_backend \
-                          -target=aws_vpc_security_group_egress_rule.rds_all_outbound \
-                          -target=aws_db_instance.postgres \
-                          -auto-approve
-
-                        echo "======================================="
-                        echo "RDS Infrastructure Created"
-                        echo "======================================="
-
-                        echo "RDS Endpoint:"
-                        terraform output -raw rds_endpoint
-
-                        echo "RDS Database Name:"
-                        terraform output -raw rds_database_name
-
-                        echo "======================================="
-                        echo "RDS is now available"
-                        echo "======================================="
                     '''
                 }
             }
@@ -311,24 +349,33 @@ Configure SonarQube in Jenkins:
 
 
         // ============================================================
-        // Terraform - Base Infrastructure
+        // Terraform - Backend / Packer Infrastructure
         //
-        // IMPORTANT:
-        // Packer outbound default rule is NOT targeted here because
-        // AWS Security Groups already provide the default outbound
-        // allow-all rule.
+        // Jenkins itself is NOT created here.
+        //
+        // These resources are required by Packer:
+        //
+        // - Packer security group
+        // - Packer SSH rule
+        // - Backend IAM role
+        // - Backend SSM
+        // - Backend CloudWatch
+        // - Backend RDS Secrets Manager access
+        // - Backend instance profile
         // ============================================================
 
-        stage('Terraform - Base Infrastructure') {
+        stage('Terraform - Backend Packer Infrastructure') {
             steps {
                 dir('terraform') {
                     sh '''
                         set -e
 
+                        echo "======================================="
+                        echo "Preparing Backend/Packer Infrastructure"
+                        echo "======================================="
+
                         terraform apply \
                           -target=aws_subnet.public_subnet_2 \
-                          -target=aws_subnet.private_subnet_1 \
-                          -target=aws_subnet.private_subnet_2 \
                           -target=aws_eip.nat_eip \
                           -target=aws_nat_gateway.nat_gateway \
                           -target=aws_route_table.public_route_table \
@@ -341,14 +388,13 @@ Configure SonarQube in Jenkins:
                           -target=aws_iam_role.backend_role \
                           -target=aws_iam_role_policy_attachment.backend_ssm \
                           -target=aws_iam_role_policy_attachment.backend_cloudwatch \
+                          -target=aws_iam_role_policy.backend_rds_secret_access \
                           -target=aws_iam_instance_profile.backend_instance_profile \
-                          -target=aws_s3_bucket.frontend \
-                          -target=aws_secretsmanager_secret.nexus_credentials \
-                          -target=aws_iam_role.nexus_role \
-                          -target=aws_iam_role_policy_attachment.nexus_ssm \
-                          -target=aws_iam_instance_profile.nexus_profile \
-                          -target=aws_instance.nexus \
                           -auto-approve
+
+                        echo "======================================="
+                        echo "Backend/Packer Infrastructure Ready"
+                        echo "======================================="
                     '''
                 }
             }
@@ -501,6 +547,12 @@ Nexus Credentials Required
 
                     BACKEND_INSTANCE_PROFILE=$(terraform output -raw backend_instance_profile)
 
+                    RDS_ENDPOINT=$(terraform output -raw rds_endpoint)
+
+                    RDS_DATABASE_NAME=$(terraform output -raw rds_database_name)
+
+                    RDS_SECRET_ARN=$(terraform output -raw rds_master_secret_arn)
+
                     if [ -z "$SUBNET_ID" ]; then
                         echo "ERROR: Public subnet ID is empty."
                         exit 1
@@ -516,6 +568,21 @@ Nexus Credentials Required
                         exit 1
                     fi
 
+                    if [ -z "$RDS_ENDPOINT" ]; then
+                        echo "ERROR: RDS endpoint is empty."
+                        exit 1
+                    fi
+
+                    if [ -z "$RDS_DATABASE_NAME" ]; then
+                        echo "ERROR: RDS database name is empty."
+                        exit 1
+                    fi
+
+                    if [ -z "$RDS_SECRET_ARN" ]; then
+                        echo "ERROR: RDS secret ARN is empty."
+                        exit 1
+                    fi
+
                     cd ..
 
                     echo "$SUBNET_ID" > packer-subnet-id.txt
@@ -524,7 +591,17 @@ Nexus Credentials Required
 
                     echo "$BACKEND_INSTANCE_PROFILE" > backend-instance-profile.txt
 
+                    echo "$RDS_ENDPOINT" > rds-endpoint.txt
+
+                    echo "$RDS_DATABASE_NAME" > rds-database-name.txt
+
+                    echo "$RDS_SECRET_ARN" > rds-secret-arn.txt
+
                     echo "Terraform outputs successfully retrieved."
+
+                    echo "RDS endpoint retrieved."
+                    echo "RDS database name retrieved."
+                    echo "RDS secret ARN retrieved."
                 '''
             }
         }
@@ -533,17 +610,14 @@ Nexus Credentials Required
         // ============================================================
         // DEBUG - Build Backend AMI
         //
-        // IMPORTANT DEBUG MODE
+        // IMPORTANT:
         //
-        // If ANY Packer provisioner fails, especially the Actuator
-        // health check, Packer will ABORT without cleaning up the
-        // source EC2 instance.
+        // -on-error=abort
         //
-        // This allows us to SSH/SSM into the exact failed instance
-        // and investigate the real problem.
+        // If the health check fails, Packer does NOT automatically
+        // terminate the source instance.
         //
-        // DO NOT use this Jenkinsfile1 as the final production
-        // pipeline.
+        // We can SSH/SSM into the failed source instance.
         // ============================================================
 
         stage('DEBUG - Build Backend AMI') {
@@ -578,6 +652,12 @@ Nexus Credentials Required
 
                         BACKEND_INSTANCE_PROFILE=$(cat ../backend-instance-profile.txt)
 
+                        RDS_ENDPOINT=$(cat ../rds-endpoint.txt)
+
+                        RDS_DATABASE_NAME=$(cat ../rds-database-name.txt)
+
+                        RDS_SECRET_ARN=$(cat ../rds-secret-arn.txt)
+
 
                         if [ -z "$SUBNET_ID" ]; then
                             echo "ERROR: Subnet ID is empty."
@@ -585,7 +665,7 @@ Nexus Credentials Required
                         fi
 
                         if [ -z "$SECURITY_GROUP_ID" ]; then
-                            echo "ERROR: Security Group ID is empty."
+                            echo "ERROR: Packer Security Group ID is empty."
                             exit 1
                         fi
 
@@ -593,6 +673,35 @@ Nexus Credentials Required
                             echo "ERROR: Backend Instance Profile is empty."
                             exit 1
                         fi
+
+                        if [ -z "$RDS_ENDPOINT" ]; then
+                            echo "ERROR: RDS endpoint is empty."
+                            exit 1
+                        fi
+
+                        if [ -z "$RDS_DATABASE_NAME" ]; then
+                            echo "ERROR: RDS database name is empty."
+                            exit 1
+                        fi
+
+                        if [ -z "$RDS_SECRET_ARN" ]; then
+                            echo "ERROR: RDS secret ARN is empty."
+                            exit 1
+                        fi
+
+
+                        echo "======================================="
+                        echo "RDS Information"
+                        echo "======================================="
+
+                        echo "RDS endpoint:"
+                        echo "$RDS_ENDPOINT"
+
+                        echo "RDS database:"
+                        echo "$RDS_DATABASE_NAME"
+
+                        echo "RDS secret ARN:"
+                        echo "$RDS_SECRET_ARN"
 
 
                         echo "======================================="
@@ -621,6 +730,7 @@ Nexus Credentials Required
                         echo "Use SSH or SSM to investigate it."
                         echo ""
 
+
                         packer build \
                           -on-error=abort \
                           -var-file=terraform.pkrvars.hcl \
@@ -629,19 +739,6 @@ Nexus Credentials Required
                           -var "backend_instance_profile_name=$BACKEND_INSTANCE_PROFILE" \
                           -var "ssh_private_key_file=$PACKER_SSH_KEY" \
                           .
-
-
-                        echo "======================================="
-                        echo "Packer Build Completed"
-                        echo "======================================="
-
-                        echo ""
-                        echo "The health check passed and Packer completed."
-                        echo "This DEBUG pipeline does not continue to"
-                        echo "Terraform - Update Infrastructure."
-                        echo ""
-
-                        exit 0
                     '''
                 }
             }
@@ -650,14 +747,6 @@ Nexus Credentials Required
 
         // ============================================================
         // STOP HERE
-        //
-        // There is intentionally NO:
-        //
-        // Terraform - Update Infrastructure
-        //
-        // stage in Jenkinsfile1.
-        //
-        // This debugging pipeline ends after Packer.
         // ============================================================
 
         stage('DEBUG - STOP HERE') {
@@ -667,21 +756,25 @@ Nexus Credentials Required
 DEBUG PIPELINE STOPPED
 ============================================================
 
-No Terraform infrastructure update will be performed.
+The pipeline intentionally stops after the Packer build.
 
-If the Packer health check failed:
-  - The source Packer EC2 instance should remain available
-    because Packer was executed with -on-error=abort.
-  - SSH/SSM into that instance.
-  - Check Tomcat.
-  - Check the deployed WAR.
-  - Check Spring Boot logs.
-  - Check Actuator endpoints.
-  - Check database connectivity.
-  - Check environment variables.
-  - Check the exact health-check URL.
+There is NO Terraform Update Infrastructure stage.
 
-Find the REAL root cause before modifying the pipeline.
+If Packer health check failed:
+
+    1. The Packer source EC2 instance should remain available.
+    2. SSH/SSM into that instance.
+    3. Check Tomcat.
+    4. Check the deployed WAR.
+    5. Check Spring Boot logs.
+    6. Check DB environment variables.
+    7. Check Secrets Manager access.
+    8. Check RDS connectivity.
+    9. Check Actuator endpoints.
+   10. Check the exact health-check URL.
+
+Find the REAL root cause before changing the
+main production Jenkinsfile.
 
 ============================================================
 '''
@@ -706,11 +799,24 @@ Find the REAL root cause before modifying the pipeline.
                 rm -f packer-subnet-id.txt
                 rm -f packer-sg-id.txt
                 rm -f backend-instance-profile.txt
+                rm -f rds-endpoint.txt
+                rm -f rds-database-name.txt
+                rm -f rds-secret-arn.txt
             '''
         }
 
         success {
-            echo 'DEBUG pipeline completed successfully and intentionally stopped.'
+            echo '''
+============================================================
+DEBUG PIPELINE COMPLETED
+============================================================
+
+Packer completed successfully.
+
+The pipeline intentionally stopped here.
+
+============================================================
+'''
         }
 
         failure {
@@ -721,14 +827,14 @@ DEBUG PIPELINE FAILED
 
 If failure occurred during Packer provisioning:
 
-The Packer build was executed with:
+Packer was executed with:
 
     -on-error=abort
 
-Therefore, the source EC2 instance should remain available
-for investigation.
+Therefore, the source EC2 instance should remain
+available for investigation.
 
-Do NOT terminate it yet.
+DO NOT terminate it yet.
 
 Use SSH or SSM to investigate the actual failure.
 
