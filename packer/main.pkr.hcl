@@ -139,7 +139,6 @@ source "amazon-ebs" "backend" {
 
   force_deregister      = true
   force_delete_snapshot = true
-
 }
 
 
@@ -174,10 +173,10 @@ build {
 
 
       "echo '========================================'",
-      "echo 'Installing Java 17 and wget'",
+      "echo 'Installing Java 17, wget and curl'",
       "echo '========================================'",
 
-      "sudo dnf install -y java-17-amazon-corretto-devel wget",
+      "sudo dnf install -y java-17-amazon-corretto-devel wget curl",
 
 
       "echo '========================================'",
@@ -193,7 +192,7 @@ build {
 
       "cd /tmp",
 
-      "https://archive.apache.org/dist/tomcat/tomcat-10/v10.1.57/bin/apache-tomcat-10.1.57.tar.gz",
+      "wget -q -f -O apache-tomcat-10.1.57.tar.gz https://archive.apache.org/dist/tomcat/tomcat-10/v10.1.57/bin/apache-tomcat-10.1.57.tar.gz",
 
 
       "echo '========================================'",
@@ -202,7 +201,7 @@ build {
 
       "sudo mkdir -p /opt/tomcat",
 
-      "sudo tar -xzf apache-tomcat-10.1.57.tar.gz -C /opt/tomcat --strip-components=1",
+      "sudo tar -xzf /tmp/apache-tomcat-10.1.57.tar.gz -C /opt/tomcat --strip-components=1",
 
       "sudo chown -R tomcat:tomcat /opt/tomcat",
 
@@ -213,7 +212,7 @@ build {
       "echo 'Creating Tomcat Systemd Service'",
       "echo '========================================'",
 
-      "sudo tee /etc/systemd/system/tomcat.service > /dev/null <<'SERVICE_EOF'\n[Unit]\nDescription=Apache Tomcat\nAfter=network.target\n\n[Service]\nType=forking\nUser=tomcat\nGroup=tomcat\nEnvironment=\"JAVA_HOME=/usr/lib/jvm/java-17-amazon-corretto\"\nEnvironment=\"CATALINA_PID=/opt/tomcat/temp/tomcat.pid\"\nEnvironment=\"CATALINA_HOME=/opt/tomcat\"\nEnvironment=\"CATALINA_BASE=/opt/tomcat\"\nEnvironment=\"CATALINA_OPTS=-Xms512M -Xmx1024M\"\nEnvironment=\"JAVA_OPTS=-Djava.security.egd=file:/dev/./urandom\"\nExecStart=/opt/tomcat/bin/startup.sh\nExecStop=/opt/tomcat/bin/shutdown.sh\nRestart=on-failure\nRestartSec=10\n\nLimitNOFILE=65536\n\n[Install]\nWantedBy=multi-user.target\nSERVICE_EOF",
+      "sudo tee /etc/systemd/system/tomcat.service > /dev/null <<'SERVICE_EOF'\n[Unit]\nDescription=Apache Tomcat\nAfter=network.target\n\n[Service]\nType=forking\nUser=tomcat\nGroup=tomcat\nEnvironment=\"JAVA_HOME=/usr/lib/jvm/java-17-amazon-corretto\"\nEnvironment=\"CATALINA_PID=/opt/tomcat/temp/tomcat.pid\"\nEnvironment=\"CATALINA_HOME=/opt/tomcat\"\nEnvironment=\"CATALINA_BASE=/opt/tomcat\"\nEnvironment=\"CATALINA_OPTS=-Xms512M -Xmx1024M\"\nEnvironment=\"JAVA_OPTS=-Djava.security.egd=file:/dev/./urandom\"\nExecStart=/opt/tomcat/bin/startup.sh\nExecStop=/opt/tomcat/bin/shutdown.sh\nRestart=on-failure\nRestartSec=10\nLimitNOFILE=65536\n\n[Install]\nWantedBy=multi-user.target\nSERVICE_EOF",
 
 
       "echo '========================================'",
@@ -245,7 +244,6 @@ build {
     source = "${path.root}/../backend/target/server-inventory.war"
 
     destination = "/tmp/server-inventory.war"
-
   }
 
 
