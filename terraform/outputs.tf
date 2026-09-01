@@ -16,7 +16,7 @@ output "vpc_cidr" {
 # ============================================================
 
 output "internet_gateway_id" {
-  description = "Ineternet Gateway ID"
+  description = "Internet Gateway ID"
   value       = aws_internet_gateway.igw.id
 }
 
@@ -104,8 +104,6 @@ output "monitoring_sg_id" {
   value = aws_security_group.monitoring_sg.id
 }
 
-
-
 # ==========================================================
 # BACKEND IAM
 # ==========================================================
@@ -130,6 +128,12 @@ output "rds_endpoint" {
 output "rds_database_name" {
   description = "Database Name"
   value       = aws_db_instance.postgres.db_name
+}
+
+output "rds_master_secret_arn" {
+  description = "ARN of the RDS managed master user secret"
+  value       = aws_db_instance.postgres.master_user_secret[0].secret_arn
+  sensitive   = true
 }
 
 # ===========================================================
@@ -203,6 +207,10 @@ output "scale_out_policy_arn" {
 output "scale_in_policy_arn" {
   value = var.backend_ami_id != null ? aws_autoscaling_policy.scale_in[0].arn : null
 }
+
+# ============================================================
+# FRONTEND
+# ============================================================
 
 output "frontend_bucket_name" {
   value = aws_s3_bucket.frontend.bucket
