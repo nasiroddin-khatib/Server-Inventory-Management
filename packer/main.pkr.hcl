@@ -177,7 +177,7 @@ build {
       "echo 'Installing Java 17, wget, curl, jq and AWS CLI'",
       "echo '========================================'",
 
-      "sudo dnf install -y java-17-amazon-corretto-devel wget curl jq awscli",
+      "sudo dnf install -y java-17-amazon-corretto-devel wget jq awscli",
 
 
       "echo '========================================'",
