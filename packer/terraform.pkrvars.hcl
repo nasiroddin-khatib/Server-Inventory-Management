@@ -25,9 +25,3 @@ key_name = "mykey"
 
 ssh_username = "ec2-user"
 
-
-############################################
-# Backend IAM Instance Profile
-############################################
-
-backend_instance_profile_name = "backend-instance-profile"
