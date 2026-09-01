@@ -13,6 +13,49 @@ packer {
 
 
 ############################################
+# Variables
+############################################
+
+variable "aws_region" {
+  type = string
+}
+
+variable "instance_type" {
+  type = string
+}
+
+variable "key_name" {
+  type = string
+}
+
+variable "ssh_username" {
+  type = string
+}
+
+variable "ssh_private_key_file" {
+  type      = string
+  sensitive = true
+}
+
+variable "subnet_id" {
+  type = string
+}
+
+variable "security_group_id" {
+  type = string
+}
+
+variable "backend_instance_profile_name" {
+  type = string
+}
+
+variable "rds_secret_arn" {
+  type      = string
+  sensitive = true
+}
+
+
+############################################
 # Latest Amazon Linux 2023 AMI
 ############################################
 
@@ -123,10 +166,13 @@ source "amazon-ebs" "backend" {
 
   tags = {
 
-    Name        = "server-inventory-backend-ami"
-    Project     = "Server-Inventory"
+    Name = "server-inventory-backend-ami"
+
+    Project = "Server-Inventory"
+
     Environment = "Production"
-    ManagedBy   = "Packer"
+
+    ManagedBy = "Packer"
   }
 
 
@@ -153,7 +199,7 @@ build {
 
 
   ##########################################
-  # Install Java + Tomcat
+  # Install Java + Tomcat + AWS CLI + jq
   ##########################################
 
   provisioner "shell" {
@@ -170,26 +216,26 @@ build {
 
 
       "echo '========================================'",
-      "echo 'Installing Java 17, wget and curl'",
+      "echo 'Installing Java 17, wget, curl, jq and AWS CLI'",
       "echo '========================================'",
 
-      "sudo dnf install -y java-17-amazon-corretto-devel wget",
+      "sudo dnf install -y java-17-amazon-corretto-devel wget curl jq awscli",
 
 
       "echo '========================================'",
       "echo 'Creating Tomcat User'",
       "echo '========================================'",
 
-      "sudo useradd -r -m -U -d /opt/tomcat -s /bin/false tomcat || true",
+      "sudo useradd --system --home /opt/tomcat --shell /sbin/nologin tomcat || true",
 
 
       "echo '========================================'",
-      "echo 'Downloading Tomcat 10.1.57'",
+      "echo 'Downloading Tomcat'",
       "echo '========================================'",
 
       "cd /tmp",
 
-      "wget -q -O apache-tomcat-10.1.57.tar.gz https://archive.apache.org/dist/tomcat/tomcat-10/v10.1.57/bin/apache-tomcat-10.1.57.tar.gz",
+      "wget -q https://archive.apache.org/dist/tomcat/tomcat-10/v10.1.57/bin/apache-tomcat-10.1.57.tar.gz",
 
 
       "echo '========================================'",
@@ -198,43 +244,92 @@ build {
 
       "sudo mkdir -p /opt/tomcat",
 
-      "sudo tar -xzf /tmp/apache-tomcat-10.1.57.tar.gz -C /opt/tomcat --strip-components=1",
+      "sudo tar -xzf apache-tomcat-10.1.57.tar.gz -C /opt/tomcat --strip-components=1",
 
       "sudo chown -R tomcat:tomcat /opt/tomcat",
 
-      "sudo chmod -R 755 /opt/tomcat",
+      "sudo chmod +x /opt/tomcat/bin/*.sh",
 
 
       "echo '========================================'",
-      "echo 'Creating Tomcat Systemd Service'",
+      "echo 'Creating Application Configuration Directory'",
       "echo '========================================'",
 
-      "sudo tee /etc/systemd/system/tomcat.service > /dev/null <<'SERVICE_EOF'\n[Unit]\nDescription=Apache Tomcat\nAfter=network.target\n\n[Service]\nType=forking\nUser=tomcat\nGroup=tomcat\nEnvironment=\"JAVA_HOME=/usr/lib/jvm/java-17-amazon-corretto\"\nEnvironment=\"CATALINA_PID=/opt/tomcat/temp/tomcat.pid\"\nEnvironment=\"CATALINA_HOME=/opt/tomcat\"\nEnvironment=\"CATALINA_BASE=/opt/tomcat\"\nEnvironment=\"CATALINA_OPTS=-Xms512M -Xmx1024M\"\nEnvironment=\"JAVA_OPTS=-Djava.security.egd=file:/dev/./urandom\"\nExecStart=/opt/tomcat/bin/startup.sh\nExecStop=/opt/tomcat/bin/shutdown.sh\nRestart=on-failure\nRestartSec=10\nLimitNOFILE=65536\n\n[Install]\nWantedBy=multi-user.target\nSERVICE_EOF",
+      "sudo mkdir -p /etc/server-inventory",
+
+      "sudo chown root:tomcat /etc/server-inventory",
+
+      "sudo chmod 750 /etc/server-inventory",
 
 
       "echo '========================================'",
-      "echo 'Starting Tomcat'",
+      "echo 'Creating Tomcat systemd Service'",
       "echo '========================================'",
 
-      "sudo systemctl daemon-reload",
+      "sudo tee /etc/systemd/system/tomcat.service > /dev/null <<'EOF'\n[Unit]\nDescription=Apache Tomcat 10.1.57\nAfter=network.target\n\n[Service]\nType=forking\nUser=tomcat\nGroup=tomcat\nEnvironment=\"JAVA_HOME=/usr/lib/jvm/java-17-amazon-corretto\"\nEnvironmentFile=/etc/server-inventory/db.env\nEnvironment=\"CATALINA_HOME=/opt/tomcat\"\nEnvironment=\"CATALINA_BASE=/opt/tomcat\"\nEnvironment=\"CATALINA_PID=/opt/tomcat/temp/tomcat.pid\"\nEnvironment=\"CATALINA_OPTS=-Xms512M -Xmx1024M\"\nEnvironment=\"JAVA_OPTS=-Djava.awt.headless=true -Djava.security.egd=file:/dev/./urandom\"\nExecStart=/opt/tomcat/bin/startup.sh\nExecStop=/opt/tomcat/bin/shutdown.sh\nRestart=on-failure\n\n[Install]\nWantedBy=multi-user.target\nEOF",
 
-      "sudo systemctl enable tomcat",
 
-      "sudo systemctl start tomcat",
+      "echo '========================================'",
+      "echo 'Retrieving RDS Secret'",
+      "echo '========================================'",
 
-      "sleep 10",
+      "sudo aws secretsmanager get-secret-value --secret-id '${var.rds_secret_arn}' --region '${var.aws_region}' --query SecretString --output text > /tmp/rds-secret.json",
 
-      "sudo systemctl is-active --quiet tomcat",
 
-      "echo 'Tomcat is running successfully'"
+      "echo '========================================'",
+      "echo 'Creating Database Environment File'",
+      "echo '========================================'",
 
+      "RDS_HOST=$(sudo jq -r '.host' /tmp/rds-secret.json)",
+
+      "RDS_PORT=$(sudo jq -r '.port' /tmp/rds-secret.json)",
+
+      "RDS_DBNAME=$(sudo jq -r '.dbname' /tmp/rds-secret.json)",
+
+      "RDS_USERNAME=$(sudo jq -r '.username' /tmp/rds-secret.json)",
+
+      "RDS_PASSWORD=$(sudo jq -r '.password' /tmp/rds-secret.json)",
+
+
+      "if [ -z \"$RDS_HOST\" ] || [ \"$RDS_HOST\" = \"null\" ]; then echo 'ERROR: RDS host is missing from secret'; exit 1; fi",
+
+      "if [ -z \"$RDS_PORT\" ] || [ \"$RDS_PORT\" = \"null\" ]; then echo 'ERROR: RDS port is missing from secret'; exit 1; fi",
+
+      "if [ -z \"$RDS_DBNAME\" ] || [ \"$RDS_DBNAME\" = \"null\" ]; then echo 'ERROR: RDS database name is missing from secret'; exit 1; fi",
+
+      "if [ -z \"$RDS_USERNAME\" ] || [ \"$RDS_USERNAME\" = \"null\" ]; then echo 'ERROR: RDS username is missing from secret'; exit 1; fi",
+
+      "if [ -z \"$RDS_PASSWORD\" ] || [ \"$RDS_PASSWORD\" = \"null\" ]; then echo 'ERROR: RDS password is missing from secret'; exit 1; fi",
+
+
+      "sudo bash -c 'printf \"DB_URL=jdbc:postgresql://%s:%s/%s\\nDB_USERNAME=%s\\nDB_PASSWORD=%s\\n\" \"$RDS_HOST\" \"$RDS_PORT\" \"$RDS_DBNAME\" \"$RDS_USERNAME\" \"$RDS_PASSWORD\" > /etc/server-inventory/db.env'",
+
+      "sudo chown root:tomcat /etc/server-inventory/db.env",
+
+      "sudo chmod 640 /etc/server-inventory/db.env",
+
+
+      "echo '========================================'",
+      "echo 'Cleaning Temporary Secret'",
+      "echo '========================================'",
+
+      "sudo rm -f /tmp/rds-secret.json",
+
+
+      "echo '========================================'",
+      "echo 'Copying Backend WAR'",
+      "echo '========================================'",
+
+      "sudo rm -rf /opt/tomcat/webapps/server-inventory",
+
+      "sudo rm -f /opt/tomcat/webapps/server-inventory.war"
     ]
   }
 
 
-  ############################################
-  # Copy WAR from Jenkins Workspace
-  ############################################
+  ##########################################
+  # Copy Backend WAR
+  ##########################################
 
   provisioner "file" {
 
@@ -244,9 +339,9 @@ build {
   }
 
 
-  ############################################
-  # Deploy WAR
-  ############################################
+  ##########################################
+  # Deploy Backend WAR
+  ##########################################
 
   provisioner "shell" {
 
@@ -255,41 +350,65 @@ build {
       "set -e",
 
       "echo '========================================'",
-      "echo 'Deploying Server Inventory WAR'",
+
+      "echo 'Deploying Backend WAR'",
+
       "echo '========================================'",
-
-      "sudo systemctl stop tomcat",
-
-      "sudo rm -rf /opt/tomcat/webapps/ROOT",
-
-      "sudo rm -f /opt/tomcat/webapps/ROOT.war",
-
-      "sudo rm -f /opt/tomcat/webapps/server-inventory.war",
-
-      "sudo rm -rf /opt/tomcat/webapps/server-inventory",
 
       "sudo mv /tmp/server-inventory.war /opt/tomcat/webapps/server-inventory.war",
 
       "sudo chown tomcat:tomcat /opt/tomcat/webapps/server-inventory.war",
 
+      "sudo chmod 644 /opt/tomcat/webapps/server-inventory.war",
+
+
+      "echo '========================================'",
+
+      "echo 'Starting Tomcat'",
+
+      "echo '========================================'",
+
+      "sudo systemctl daemon-reload",
+
+      "sudo systemctl enable tomcat",
+
       "sudo systemctl start tomcat",
 
-      "echo 'WAR deployed. Waiting for application startup...'"
 
+      "echo '========================================'",
+
+      "echo 'Waiting for Tomcat'",
+
+      "echo '========================================'",
+
+      "sleep 15",
+
+
+      "echo '========================================'",
+
+      "echo 'Tomcat Status'",
+
+      "echo '========================================'",
+
+      "sudo systemctl status tomcat --no-pager || true",
+
+
+      "echo '========================================'",
+
+      "echo 'Deployed Applications'",
+
+      "echo '========================================'",
+
+      "sudo ls -lah /opt/tomcat/webapps/",
+
+      "sudo ls -lah /opt/tomcat/webapps/server-inventory/ || true"
     ]
   }
 
 
-  ############################################
-  # Verify Application
-  #
-  # Spring Boot Actuator belongs to the
-  # application itself. Prometheus/Grafana
-  # are NOT required for this health check.
-  #
-  # Retry for up to 150 seconds instead of
-  # relying on one fixed sleep.
-  ############################################
+  ##########################################
+  # Application Health Check
+  ##########################################
 
   provisioner "shell" {
 
@@ -298,98 +417,100 @@ build {
       "set -e",
 
       "echo '========================================'",
-      "echo 'Waiting for Backend Application'",
+
+      "echo 'Checking Application Health'",
+
       "echo '========================================'",
 
-      "HEALTH_URL='http://127.0.0.1:8080/server-inventory/actuator/health'",
 
-      "MAX_ATTEMPTS=30",
+      "for i in $(seq 1 30); do",
 
-      "ATTEMPT=1",
+      "  echo \"Health check attempt $i/30\";",
 
-      "until curl -fsS \"$HEALTH_URL\" >/tmp/actuator-health.json 2>/tmp/actuator-health-error.log; do",
+      "  if curl -fsS http://127.0.0.1:8080/server-inventory/actuator/health; then",
 
-      "  echo \"Health check attempt $ATTEMPT/$MAX_ATTEMPTS failed. Application may still be starting...\"",
+      "    echo '';",
 
-      "  if [ \"$ATTEMPT\" -ge \"$MAX_ATTEMPTS\" ]; then",
+      "    echo '========================================';",
 
-      "    echo '========================================'",
-      "    echo 'Application Health Check Failed'",
-      "    echo '========================================'",
+      "    echo 'APPLICATION HEALTH CHECK PASSED';",
 
-      "    echo 'Testing all application URLs for diagnosis...'",
+      "    echo '========================================';",
 
-      "    echo '========================================'",
-      "    echo '1. Root URL'",
-      "    echo '========================================'",
-      "    curl -i http://127.0.0.1:8080/ || true",
+      "    exit 0;",
 
-      "    echo '========================================'",
-      "    echo '2. Application Context URL'",
-      "    echo '========================================'",
-      "    curl -i http://127.0.0.1:8080/server-inventory/ || true",
+      "  fi;",
 
-      "    echo '========================================'",
-      "    echo '3. Actuator Base URL'",
-      "    echo '========================================'",
-      "    curl -i http://127.0.0.1:8080/server-inventory/actuator/ || true",
-
-      "    echo '========================================'",
-      "    echo '4. Actuator Health URL'",
-      "    echo '========================================'",
-      "    curl -i http://127.0.0.1:8080/server-inventory/actuator/health || true",
-
-      "    echo '========================================'",
-      "    echo 'Tomcat service status:'",
-      "    echo '========================================'",
-      "    sudo systemctl status tomcat --no-pager || true",
-
-      "    echo '========================================'",
-      "    echo 'Tomcat Catalina Log:'",
-      "    echo '========================================'",
-      "    sudo tail -n 150 /opt/tomcat/logs/catalina.out || true",
-
-      "    echo '========================================'",
-      "    echo 'Actuator curl error:'",
-      "    echo '========================================'",
-      "    cat /tmp/actuator-health-error.log || true",
-
-      "    echo '========================================'",
-      "    echo 'Deployed WAR:'",
-      "    echo '========================================'",
-      "    ls -lah /opt/tomcat/webapps/ || true",
-
-      "    exit 1",
-
-      "  fi",
-
-      "  ATTEMPT=$((ATTEMPT + 1))",
-
-      "  sleep 5",
+      "  sleep 5;",
 
       "done",
 
-      "echo '========================================'",
-      "echo 'Actuator Health Response:'",
-      "echo '========================================'",
-
-      "cat /tmp/actuator-health.json",
-
-      "echo ''",
 
       "echo '========================================'",
-      "echo 'Backend application is healthy'",
+
+      "echo 'APPLICATION HEALTH CHECK FAILED'",
+
       "echo '========================================'",
 
-      "rm -f /tmp/actuator-health.json /tmp/actuator-health-error.log"
 
+      "echo 'Tomcat status:'",
+
+      "sudo systemctl status tomcat --no-pager || true",
+
+
+      "echo 'Listening on port 8080:'",
+
+      "sudo ss -lntp | grep 8080 || true",
+
+
+      "echo 'Webapps:'",
+
+      "sudo ls -lah /opt/tomcat/webapps/ || true",
+
+
+      "echo 'Application directory:'",
+
+      "sudo ls -lah /opt/tomcat/webapps/server-inventory/ || true",
+
+
+      "echo 'Root endpoint:'",
+
+      "curl -i http://127.0.0.1:8080/ || true",
+
+
+      "echo 'Application context:'",
+
+      "curl -i http://127.0.0.1:8080/server-inventory/ || true",
+
+
+      "echo 'Actuator endpoint:'",
+
+      "curl -i http://127.0.0.1:8080/server-inventory/actuator/ || true",
+
+
+      "echo 'Health endpoint:'",
+
+      "curl -i http://127.0.0.1:8080/server-inventory/actuator/health || true",
+
+
+      "echo 'Recent Tomcat logs:'",
+
+      "sudo journalctl -u tomcat --no-pager -n 100 || true",
+
+
+      "echo 'Catalina log:'",
+
+      "sudo tail -n 100 /opt/tomcat/logs/catalina.out || true",
+
+
+      "exit 1"
     ]
   }
 
 
-  ############################################
-  # Install CloudWatch Agent
-  ############################################
+  ##########################################
+  # Remove Database Secret Before AMI
+  ##########################################
 
   provisioner "shell" {
 
@@ -398,26 +519,23 @@ build {
       "set -e",
 
       "echo '========================================'",
-      "echo 'Installing Amazon CloudWatch Agent'",
+
+      "echo 'Removing Database Secret Before AMI Creation'",
+
       "echo '========================================'",
 
-      "sudo dnf install -y wget",
+      "sudo systemctl stop tomcat",
 
-      "wget -q -O /tmp/amazon-cloudwatch-agent.rpm https://amazoncloudwatch-agent.s3.amazonaws.com/amazon_linux/amd64/latest/amazon-cloudwatch-agent.rpm",
+      "sudo rm -f /etc/server-inventory/db.env",
 
-      "sudo rpm -U /tmp/amazon-cloudwatch-agent.rpm",
-
-      "rm -f /tmp/amazon-cloudwatch-agent.rpm",
-
-      "echo 'CloudWatch Agent installed successfully'"
-
+      "echo 'Database credentials removed from AMI build instance.'"
     ]
   }
 
 
-  ############################################
-  # CloudWatch Agent Configuration
-  ############################################
+  ##########################################
+  # CloudWatch Agent
+  ##########################################
 
   provisioner "shell" {
 
@@ -426,77 +544,55 @@ build {
       "set -e",
 
       "echo '========================================'",
-      "echo 'Creating CloudWatch Agent Configuration'",
+
+      "echo 'Installing CloudWatch Agent'",
+
       "echo '========================================'",
 
-      "sudo mkdir -p /opt/aws/amazon-cloudwatch-agent/etc",
+      "cd /tmp",
 
-      "sudo tee /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json > /dev/null <<'CW_EOF'\n{\n  \"agent\": {\n    \"metrics_collection_interval\": 60,\n    \"run_as_user\": \"root\"\n  },\n  \"logs\": {\n    \"logs_collected\": {\n      \"files\": {\n        \"collect_list\": [\n          {\n            \"file_path\": \"/var/log/messages\",\n            \"log_group_name\": \"/server-inventory/system/messages\",\n            \"log_stream_name\": \"{instance_id}\",\n            \"retention_in_days\": 14\n          },\n          {\n            \"file_path\": \"/var/log/secure\",\n            \"log_group_name\": \"/server-inventory/system/secure\",\n            \"log_stream_name\": \"{instance_id}\",\n            \"retention_in_days\": 14\n          },\n          {\n            \"file_path\": \"/opt/tomcat/logs/catalina.out\",\n            \"log_group_name\": \"/server-inventory/application/tomcat\",\n            \"log_stream_name\": \"{instance_id}\",\n            \"retention_in_days\": 14\n          }\n        ]\n      }\n    }\n  },\n  \"metrics\": {\n    \"namespace\": \"ServerInventory/EC2\",\n    \"append_dimensions\": {\n      \"InstanceId\": \"$${aws:InstanceId}\",\n      \"InstanceType\": \"$${aws:InstanceType}\",\n      \"AutoScalingGroupName\": \"$${aws:AutoScalingGroupName}\"\n    },\n    \"metrics_collected\": {\n      \"cpu\": {\n        \"measurement\": [\n          \"cpu_usage_idle\",\n          \"cpu_usage_user\",\n          \"cpu_usage_system\"\n        ],\n        \"metrics_collection_interval\": 60,\n        \"resources\": [\n          \"*\"\n        ],\n        \"totalcpu\": true\n      },\n      \"disk\": {\n        \"measurement\": [\n          \"used_percent\"\n        ],\n        \"metrics_collection_interval\": 60,\n        \"resources\": [\n          \"*\"\n        ]\n      },\n      \"diskio\": {\n        \"measurement\": [\n          \"read_bytes\",\n          \"write_bytes\"\n        ],\n        \"metrics_collection_interval\": 60,\n        \"resources\": [\n          \"*\"\n        ]\n      },\n      \"mem\": {\n        \"measurement\": [\n          \"mem_used_percent\"\n        ],\n        \"metrics_collection_interval\": 60\n      },\n      \"swap\": {\n        \"measurement\": [\n          \"swap_used_percent\"\n        ],\n        \"metrics_collection_interval\": 60\n      }\n    }\n  }\n}\nCW_EOF",
+      "wget -q https://amazoncloudwatch-agent.s3.amazonaws.com/amazon_linux/amd64/latest/amazon-cloudwatch-agent.rpm",
 
-      "sudo chown root:root /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json",
+      "sudo rpm -U ./amazon-cloudwatch-agent.rpm || true",
 
-      "sudo chmod 644 /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json",
-
-      "echo 'CloudWatch Agent configuration created'"
-
+      "rm -f amazon-cloudwatch-agent.rpm"
     ]
   }
 
 
-  ############################################
-  # Start CloudWatch Agent
-  ############################################
+  ##########################################
+  # Final Cleanup
+  ##########################################
 
   provisioner "shell" {
 
     inline = [
 
-      "set -e",
-
-      "echo '========================================'",
-      "echo 'Starting CloudWatch Agent'",
       "echo '========================================'",
 
-      "sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json -s",
+      "echo 'Final Cleanup'",
 
-      "sudo systemctl enable amazon-cloudwatch-agent",
+      "echo '========================================'",
 
-      "sudo systemctl is-active --quiet amazon-cloudwatch-agent",
-
-      "echo 'CloudWatch Agent is running successfully'"
-
-    ]
-  }
-
-
-  ############################################
-  # Cleanup
-  ############################################
-
-  provisioner "shell" {
-
-    inline = [
-
-      "sudo rm -f /tmp/server-inventory.war",
+      "sudo rm -f /tmp/rds-secret.json",
 
       "sudo rm -f /tmp/apache-tomcat-10.1.57.tar.gz",
 
-      "sudo dnf clean all"
+      "sudo rm -f /tmp/server-inventory.war",
 
+      "sudo dnf clean all || true"
     ]
   }
 
 
-  ############################################
-  # Generate AMI Manifest
-  ############################################
+  ##########################################
+  # Manifest
+  ##########################################
 
   post-processor "manifest" {
 
-    output = "packer-manifest.json"
+    output = "manifest.json"
 
     strip_path = true
-
   }
-
 }
