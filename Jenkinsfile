@@ -333,8 +333,7 @@ Configure SonarQube in Jenkins:
                           -target=aws_route_table_association.private_subnet_1 \
                           -target=aws_route_table_association.private_subnet_2 \
                           -target=aws_security_group.packer_sg \
-                          -target=aws_vpc_security_group_ingress_rule.packer_ssh_from_jenkins \
-                          -target=aws_vpc_security_group_egress_rule.packer_all_outbound \
+                          -target=aws_vpc_security_group_ingress_rule.packer_ssh_from_jenkins \                          
                           -target=aws_iam_role.backend_role \
                           -target=aws_iam_role_policy_attachment.backend_ssm \
                           -target=aws_iam_role_policy_attachment.backend_cloudwatch \
