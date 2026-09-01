@@ -176,7 +176,7 @@ build {
       "echo 'Installing Java 17, wget and curl'",
       "echo '========================================'",
 
-      "sudo dnf install -y java-17-amazon-corretto-devel wget",
+      "sudo dnf install -y java-17-amazon-corretto-devel wget curl",
 
 
       "echo '========================================'",
@@ -277,11 +277,7 @@ build {
 
       "sudo systemctl start tomcat",
 
-      "sleep 15",
-
-      "sudo systemctl is-active --quiet tomcat",
-
-      "echo 'WAR deployment completed'"
+      "echo 'WAR deployed. Waiting for application startup...'"
 
     ]
   }
@@ -289,6 +285,13 @@ build {
 
   ############################################
   # Verify Application
+  #
+  # Spring Boot Actuator belongs to the
+  # application itself. Prometheus/Grafana
+  # are NOT required for this health check.
+  #
+  # Retry for up to 150 seconds instead of
+  # relying on one fixed sleep.
   ############################################
 
   provisioner "shell" {
@@ -298,16 +301,74 @@ build {
       "set -e",
 
       "echo '========================================'",
-      "echo 'Testing Backend Application'",
+      "echo 'Waiting for Backend Application'",
       "echo '========================================'",
 
-      "curl -f http://localhost:8080/server-inventory/actuator/health",
+      "HEALTH_URL='http://127.0.0.1:8080/server-inventory/actuator/health'",
+
+      "MAX_ATTEMPTS=30",
+
+      "ATTEMPT=1",
+
+      "until curl -fsS \"$HEALTH_URL\" >/tmp/actuator-health.json 2>/tmp/actuator-health-error.log; do",
+
+      "  echo \"Health check attempt $ATTEMPT/$MAX_ATTEMPTS failed. Application may still be starting...\"",
+
+      "  if [ \"$ATTEMPT\" -ge \"$MAX_ATTEMPTS\" ]; then",
+
+      "    echo '========================================'",
+
+      "    echo 'Application Health Check Failed'",
+
+      "    echo '========================================'",
+
+      "    echo 'Tomcat service status:'",
+
+      "    sudo systemctl status tomcat --no-pager || true",
+
+      "    echo '========================================'",
+
+      "    echo 'Tomcat Catalina Log:'",
+
+      "    echo '========================================'",
+
+      "    sudo tail -n 100 /opt/tomcat/logs/catalina.out || true",
+
+      "    echo '========================================'",
+
+      "    echo 'Actuator curl error:'",
+
+      "    echo '========================================'",
+
+      "    cat /tmp/actuator-health-error.log || true",
+
+      "    exit 1",
+
+      "  fi",
+
+      "  ATTEMPT=$((ATTEMPT + 1))",
+
+      "  sleep 5",
+
+      "done",
+
+      "echo '========================================'",
+
+      "echo 'Actuator Health Response:'",
+
+      "echo '========================================'",
+
+      "cat /tmp/actuator-health.json",
 
       "echo ''",
 
       "echo '========================================'",
+
       "echo 'Backend application is healthy'",
-      "echo '========================================'"
+
+      "echo '========================================'",
+
+      "rm -f /tmp/actuator-health.json /tmp/actuator-health-error.log"
 
     ]
   }
