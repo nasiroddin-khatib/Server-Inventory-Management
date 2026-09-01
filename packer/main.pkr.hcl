@@ -123,13 +123,10 @@ source "amazon-ebs" "backend" {
 
   tags = {
 
-    Name = "server-inventory-backend-ami"
-
-    Project = "Server-Inventory"
-
+    Name        = "server-inventory-backend-ami"
+    Project     = "Server-Inventory"
     Environment = "Production"
-
-    ManagedBy = "Packer"
+    ManagedBy   = "Packer"
   }
 
 
@@ -317,30 +314,50 @@ build {
       "  if [ \"$ATTEMPT\" -ge \"$MAX_ATTEMPTS\" ]; then",
 
       "    echo '========================================'",
-
       "    echo 'Application Health Check Failed'",
-
       "    echo '========================================'",
 
-      "    echo 'Tomcat service status:'",
+      "    echo 'Testing all application URLs for diagnosis...'",
 
+      "    echo '========================================'",
+      "    echo '1. Root URL'",
+      "    echo '========================================'",
+      "    curl -i http://127.0.0.1:8080/ || true",
+
+      "    echo '========================================'",
+      "    echo '2. Application Context URL'",
+      "    echo '========================================'",
+      "    curl -i http://127.0.0.1:8080/server-inventory/ || true",
+
+      "    echo '========================================'",
+      "    echo '3. Actuator Base URL'",
+      "    echo '========================================'",
+      "    curl -i http://127.0.0.1:8080/server-inventory/actuator/ || true",
+
+      "    echo '========================================'",
+      "    echo '4. Actuator Health URL'",
+      "    echo '========================================'",
+      "    curl -i http://127.0.0.1:8080/server-inventory/actuator/health || true",
+
+      "    echo '========================================'",
+      "    echo 'Tomcat service status:'",
+      "    echo '========================================'",
       "    sudo systemctl status tomcat --no-pager || true",
 
       "    echo '========================================'",
-
       "    echo 'Tomcat Catalina Log:'",
+      "    echo '========================================'",
+      "    sudo tail -n 150 /opt/tomcat/logs/catalina.out || true",
 
       "    echo '========================================'",
-
-      "    sudo tail -n 100 /opt/tomcat/logs/catalina.out || true",
-
-      "    echo '========================================'",
-
       "    echo 'Actuator curl error:'",
+      "    echo '========================================'",
+      "    cat /tmp/actuator-health-error.log || true",
 
       "    echo '========================================'",
-
-      "    cat /tmp/actuator-health-error.log || true",
+      "    echo 'Deployed WAR:'",
+      "    echo '========================================'",
+      "    ls -lah /opt/tomcat/webapps/ || true",
 
       "    exit 1",
 
@@ -353,9 +370,7 @@ build {
       "done",
 
       "echo '========================================'",
-
       "echo 'Actuator Health Response:'",
-
       "echo '========================================'",
 
       "cat /tmp/actuator-health.json",
@@ -363,9 +378,7 @@ build {
       "echo ''",
 
       "echo '========================================'",
-
       "echo 'Backend application is healthy'",
-
       "echo '========================================'",
 
       "rm -f /tmp/actuator-health.json /tmp/actuator-health-error.log"
