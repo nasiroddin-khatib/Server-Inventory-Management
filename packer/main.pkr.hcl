@@ -33,49 +33,6 @@ data "amazon-ami" "source" {
 
 
 ############################################
-# Existing Public Subnet
-############################################
-
-data "aws_subnet" "packer_subnet" {
-
-  filter {
-    name = "tag:Name"
-
-    values = [
-      "public-subnet-1"
-    ]
-  }
-}
-
-
-############################################
-# Existing Packer Security Group
-############################################
-
-data "aws_security_group" "packer_sg" {
-
-  filter {
-    name = "group-name"
-
-    values = [
-      "Server-Inventory-packer-sg"
-    ]
-  }
-}
-
-
-############################################
-# Existing Backend IAM Instance Profile
-############################################
-
-data "aws_iam_instance_profile" "backend_instance_profile" {
-
-  name = var.backend_instance_profile_name
-
-}
-
-
-############################################
 # Packer AMI Source
 ############################################
 
@@ -121,9 +78,9 @@ source "amazon-ebs" "backend" {
   # Existing Network
   ##########################################
 
-  subnet_id = data.aws_subnet.packer_subnet.id
+  subnet_id = var.subnet_id
 
-  security_group_id = data.aws_security_group.packer_sg.id
+  security_group_id = var.security_group_id
 
   associate_public_ip_address = true
 
@@ -132,7 +89,7 @@ source "amazon-ebs" "backend" {
   # IAM Instance Profile
   ##########################################
 
-  iam_instance_profile = data.aws_iam_instance_profile.backend_instance_profile.name
+  iam_instance_profile = var.backend_instance_profile_name
 
 
   ##########################################
