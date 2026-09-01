@@ -57,3 +57,25 @@ variable "backend_instance_profile_name" {
   description = "IAM instance profile attached to the temporary Packer build instance"
   type        = string
 }
+
+
+
+
+############################################
+# Existing Public Subnet
+############################################
+
+variable "subnet_id" {
+  description = "Subnet ID used by Packer build instance"
+  type        = string
+}
+
+
+############################################
+# Packer Security Group
+############################################
+
+variable "security_group_id" {
+  description = "Security Group ID used by Packer build instance"
+  type        = string
+}
