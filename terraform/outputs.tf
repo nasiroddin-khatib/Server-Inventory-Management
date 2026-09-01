@@ -20,32 +20,24 @@ output "internet_gateway_id" {
   value       = aws_internet_gateway.igw.id
 }
 
-# ===========================================================
-# subnet
-# ===========================================================
+# ============================================================
+# SUBNET
+# ============================================================
 
 output "public_subnet_1_id" {
-
   value = aws_subnet.public_subnet_1.id
-
 }
 
 output "public_subnet_2_id" {
-
   value = aws_subnet.public_subnet_2.id
-
 }
 
 output "private_subnet_1_id" {
-
   value = aws_subnet.private_subnet_1.id
-
 }
 
 output "private_subnet_2_id" {
-
   value = aws_subnet.private_subnet_2.id
-
 }
 
 # ============================================================
@@ -53,11 +45,8 @@ output "private_subnet_2_id" {
 # ============================================================
 
 output "nat_eip" {
-
   description = "Elastic IP for NAT Gateway"
-
-  value = aws_eip.nat_eip.public_ip
-
+  value       = aws_eip.nat_eip.public_ip
 }
 
 # ==========================================================
@@ -65,11 +54,8 @@ output "nat_eip" {
 # ==========================================================
 
 output "nat_gateway_id" {
-
   description = "NAT Gateway ID"
-
-  value = aws_nat_gateway.nat_gateway.id
-
+  value       = aws_nat_gateway.nat_gateway.id
 }
 
 # ==========================================================
@@ -77,19 +63,13 @@ output "nat_gateway_id" {
 # ==========================================================
 
 output "public_route_table_id" {
-
   description = "Public Route Table ID"
-
-  value = aws_route_table.public_route_table.id
-
+  value       = aws_route_table.public_route_table.id
 }
 
 output "private_route_table_id" {
-
   description = "Private Route Table ID"
-
-  value = aws_route_table.private_route_table.id
-
+  value       = aws_route_table.private_route_table.id
 }
 
 # ==============================================================
@@ -97,45 +77,40 @@ output "private_route_table_id" {
 # ==============================================================
 
 output "alb_sg_id" {
-
   value = aws_security_group.alb_sg.id
-
 }
 
 output "backend_sg_id" {
-
   value = aws_security_group.backend_sg.id
-
 }
 
 output "rds_sg_id" {
-
   value = aws_security_group.rds_sg.id
-
 }
 
 output "jenkins_sg_id" {
-
   value = aws_security_group.jenkins_sg.id
-
 }
 
 output "sonarqube_sg_id" {
-
   value = aws_security_group.sonarqube_sg.id
-
 }
 
 output "nexus_sg_id" {
-
   value = aws_security_group.nexus_sg.id
-
 }
 
 output "monitoring_sg_id" {
-
   value = aws_security_group.monitoring_sg.id
+}
 
+# ==========================================================
+# PACKER SG
+# ==========================================================
+
+output "packer_security_group_id" {
+  description = "Security Group ID used by Packer build instance"
+  value       = aws_security_group.packer_sg.id
 }
 
 # ==========================================================
@@ -143,36 +118,25 @@ output "monitoring_sg_id" {
 # ==========================================================
 
 output "backend_role_name" {
-
   value = aws_iam_role.backend_role.name
-
 }
 
 output "backend_instance_profile" {
-
   value = aws_iam_instance_profile.backend_instance_profile.name
-
 }
 
-
-# ==========================================================
+# ============================================================
 # RDS
-# ==========================================================
+# ============================================================
 
 output "rds_endpoint" {
-
   description = "RDS Endpoint"
-
-  value = aws_db_instance.postgres.endpoint
-
+  value       = aws_db_instance.postgres.endpoint
 }
 
 output "rds_database_name" {
-
   description = "Database Name"
-
-  value = aws_db_instance.postgres.db_name
-
+  value       = aws_db_instance.postgres.db_name
 }
 
 # ===========================================================
@@ -187,9 +151,8 @@ output "launch_template_latest_version" {
   value = try(aws_launch_template.backend[0].latest_version, null)
 }
 
-
 # ================================================================
-# TG 
+# TG
 # ================================================================
 
 output "target_group_arn" {
@@ -201,8 +164,8 @@ output "target_group_name" {
 }
 
 # ================================================================
-# alb
-# =================================================================
+# ALB
+# ================================================================
 
 output "alb_arn" {
   value = aws_lb.backend.arn
@@ -253,7 +216,7 @@ output "frontend_bucket_name" {
 }
 
 # ======================================================================
-# Sonarqube-Server
+# SonarQube-Server
 # ======================================================================
 
 output "sonarqube_public_ip" {
@@ -266,65 +229,47 @@ output "sonarqube_url" {
   value       = "http://${aws_instance.sonarqube.public_ip}:9000"
 }
 
-
-
-############################################
+# ############################################
 # Monitoring Server
-############################################
+# ############################################
 
 output "monitoring_instance_id" {
-
   description = "Monitoring server instance ID"
-
-  value = aws_instance.monitoring.id
-
+  value       = aws_instance.monitoring.id
 }
-
 
 output "monitoring_public_ip" {
-
   description = "Monitoring server public IP"
-
-  value = aws_instance.monitoring.public_ip
-
+  value       = aws_instance.monitoring.public_ip
 }
-
 
 output "monitoring_public_dns" {
-
   description = "Monitoring server public DNS"
-
-  value = aws_instance.monitoring.public_dns
-
+  value       = aws_instance.monitoring.public_dns
 }
-
 
 output "prometheus_url" {
-
   description = "Prometheus web UI"
-
-  value = "http://${aws_instance.monitoring.public_ip}:9090"
-
+  value       = "http://${aws_instance.monitoring.public_ip}:9090"
 }
-
 
 output "grafana_url" {
-
   description = "Grafana web UI"
-
-  value = "http://${aws_instance.monitoring.public_ip}:3000"
-
+  value       = "http://${aws_instance.monitoring.public_ip}:3000"
 }
 
+# ############################################
+# Nexus Server
+# ############################################
 
 output "nexus_public_ip" {
   description = "Public IP address of Nexus server"
   value       = aws_instance.nexus.public_ip
 }
 
-############################################
+# ############################################
 # Nexus Secret
-############################################
+# ############################################
 
 output "nexus_secret_name" {
   description = "Name of the Nexus credentials secret"
