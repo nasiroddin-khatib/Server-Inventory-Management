@@ -11,9 +11,9 @@
 
             <id>nexus</id>
 
-            <username>__NEXUS_USERNAME__</username>
+            <username>${nexus_username}</username>
 
-            <password>__NEXUS_PASSWORD__</password>
+            <password>${nexus_password}</password>
 
         </server>
 
